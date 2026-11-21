@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Check that repos.toml and the files generated from it agree"
+set -euo pipefail
+exec node "$MISE_CONFIG_ROOT/scripts/repos.mjs" check

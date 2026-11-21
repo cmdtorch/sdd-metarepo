@@ -1,0 +1,38 @@
+{% if language == 'ru' -%}
+
+# Бэклог клонов
+
+Изменения, которые были бы полезны внутри клона, но намеренно не сделаны из метарепозитория. У каждой записи есть причина. Изменение делается в клоне обычным путём, по его модели веток ([agents/branches.md](agents/branches.md)), а запись удаляется, когда изменение попадает в `main` клона.
+
+Сюда же записываются падения собственных проверок клона, которые уже есть на его ветке покоя и делают `mise run check` красным.
+
+Запись — это раздел такого вида:
+
+```markdown
+## <клон>: <что изменить>
+
+Что сделать: <изменение, достаточно конкретное, чтобы начать>.
+
+Причина: <зачем это нужно и почему не сделано сейчас>. Найдено <дата>.
+```
+
+Записей пока нет.
+{% else -%}
+# Clone backlog
+
+Changes that would be useful inside a clone but were deliberately not made from the meta-repository. Each entry has a reason. The change is made in the clone the usual way, following its branch model ([agents/branches.md](agents/branches.md)), and the entry is removed after the change reaches the clone's `main`.
+
+Failures of a clone's own checks that already exist on its rest branch and make `mise run check` red are recorded here too.
+
+An entry is a section like this:
+
+```markdown
+## <clone>: <what to change>
+
+What to do: <the change, concrete enough to start>.
+
+Reason: <why it is needed and why it was not made now>. Found on <date>.
+```
+
+There are no entries yet.
+{% endif -%}

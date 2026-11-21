@@ -1,0 +1,119 @@
+# Copier template of an AI meta-repository: one root with agent rules, OpenSpec with sdd-kit,
+# decisions and checks, and the application repositories cloned into repos/.
+#
+#   uvx copier copy --trust gh:cmdtorch/sdd-metarepo my-meta
+#
+# Only project-level questions are asked here. Repositories are added after generation with
+# `mise run add-repo` (setup runs it when the registry is empty), and sdd-kit is installed by
+# `mise run kit:install`; neither is part of the template.
+
+_min_copier_version: "9.5.0"
+_subdirectory: template
+_templates_suffix: .jinja
+_answers_file: .copier-answers.yml
+# Files the project owns after generation: `copier update` never overwrites them.
+_skip_if_exists:
+  - repos.toml
+  - GLOSSARY.md
+  - docs/clone-backlog.md
+
+_message_after_copy: |
+  The meta-repository {{ project_name }} is ready in {{ _copier_conf.dst_path }}.
+  {%- if not run_setup %}
+
+  Next steps:
+    cd {{ _copier_conf.dst_path }}
+    mise trust
+    mise run setup
+  {%- endif %}
+
+  Then start Claude Code in the root and run /bootstrap to fill in each repository's commands.
+
+_tasks:
+  # The generated project is its own git repository from the start: hk and the tests need git.
+  - command: "[ -e .git ] || git init -q -b main"
+    when: "{{ _copier_operation == 'copy' }}"
+  - command: "mise trust --quiet && mise run setup"
+    when: "{{ _copier_operation == 'copy' and run_setup }}"
+
+project_name:
+  type: str
+  help: Project name, as people call it (shown in the README and the docs)
+  validator: "{% if not project_name.strip() %}The project name is required{% endif %}"
+
+project_slug:
+  type: str
+  help: Folder-style name of the meta-repository (lower case, digits, '-', '_', '.')
+  default: "{{ project_name.strip() | lower | replace(' ', '-') }}"
+  validator: >-
+    {% set ok = 'abcdefghijklmnopqrstuvwxyz0123456789' %}{% if not project_slug
+    or project_slug[0] not in ok or project_slug | reject('in', ok ~ '._-') | list
+    %}Use lower case letters, digits, '-', '_' and '.', starting with a letter or digit{% endif %}
+
+github_org:
+  type: str
+  help: GitHub organization or user that owns the repositories (used for clone URLs)
+  validator: "{% if not github_org.strip() %}The GitHub organization is required{% endif %}"
+
+language:
+  type: str
+  help: >-
+    Language of the project: docs, task descriptions in chat, commit messages and pull
+    requests are written in it. OpenSpec artifacts follow sdd-kit: written in English, with
+    the clarifying questions in this language. Code, code comments, test messages and sdd-kit managed files stay in English.
+  choices:
+    English: en
+    Русский: ru
+  default: en
+
+language_name:
+  type: str
+  default: "{% if language == 'ru' %}Russian{% else %}English{% endif %}"
+  when: false
+
+tracker:
+  type: str
+  help: Issue tracker the team works from (the agent only reads it)
+  choices:
+    Jira: jira
+    Linear: linear
+    GitHub Issues: github
+    None: none
+  default: jira
+
+tracker_name:
+  type: str
+  default: "{{ {'jira': 'Jira', 'linear': 'Linear', 'github': 'GitHub Issues', 'none': ''}[tracker] }}"
+  when: false
+
+agent_git_default:
+  type: str
+  help: >-
+    May the agent commit and push by default? Each developer can still change it for
+    themselves in .claude/settings.local.json. The agent never commits or pushes to main.
+  choices:
+    "off: each developer opts in": "off"
+    "on: each developer can opt out": "on"
+  default: "off"
+
+e2e:
+  type: bool
+  help: Will end-to-end browser tests across the repositories live in the root e2e/ folder?
+  default: true
+
+feature_prefix:
+  type: str
+  help: Branch prefix for features
+  default: feature/
+  validator: "{% if not feature_prefix.endswith('/') %}End the prefix with '/'{% endif %}"
+
+bugfix_prefix:
+  type: str
+  help: Branch prefix for bug fixes
+  default: bugfix/
+  validator: "{% if not bugfix_prefix.endswith('/') %}End the prefix with '/'{% endif %}"
+
+run_setup:
+  type: bool
+  help: Run mise run setup now (installs tools, sdd-kit, asks for repositories, clones them)?
+  default: true

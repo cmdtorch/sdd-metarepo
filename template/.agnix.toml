@@ -1,0 +1,27 @@
+# agnix: checks the root's agent settings (mise run lint). Not checked: the clones
+# in repos/ (they have their own rules), OpenSpec changes (sdd-kit checks them)
+# and files that OpenSpec and sdd-kit install and overwrite on update:
+# the openspec-* skills, the opsx and sdd commands and the kit's agents.
+exclude = [
+    "node_modules/**",
+    ".git/**",
+    "repos/**",
+    "openspec/changes/**",
+    ".claude/skills/openspec-*/**",
+    ".claude/commands/**",
+    ".claude/agents/**",
+]
+
+# The `node openspec/tooling/... *` permissions in .claude/settings.json are
+# written by the sdd-kit installer; the meta-repository's own permissions are
+# exact read-only commands.
+[[overrides]]
+paths = [".claude/settings.json"]
+disabled_rules = ["CC-SET-036"]
+
+# AGENTS.md names the clones' rule files, which exist only after `mise run clone`.
+# Broken AGENTS.md links to root files are caught by scripts/check-agent-files.sh
+# and rule REF-002.
+[[overrides]]
+paths = ["AGENTS.md"]
+disabled_rules = ["CDX-AG-005"]

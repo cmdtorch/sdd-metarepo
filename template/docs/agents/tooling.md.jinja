@@ -1,0 +1,214 @@
+{% if language == 'ru' -%}
+
+# Инструменты, задачи и хуки
+
+Прочитайте это перед изменением `mise.toml`, `repos.toml`, задач в `mise-tasks/`, скриптов в `scripts/`, `hk.pkl`, sdd-kit, правил `ast-grep` и тестов в `tests/`.
+
+## mise
+
+mise устанавливает все инструменты корня и запускает все задачи. Инструменты перечислены в `[tools]` в `mise.toml`: Node 24, ast-grep, hk, pkl, rumdl, typos, agnix и OpenSpec CLI, версию которого фиксирует `mise run kit:install`. Точные версии и контрольные суммы хранятся в `mise.lock`: его записывает первый `mise run setup`, файл коммитится. Обновление — `mise lock --bump`, затем `mise run test` и `mise run check`.
+
+Node 24 запускает хук агента, скрипт реестра, проверки и хуки sdd-kit.
+
+## Реестр репозиториев
+
+`repos.toml` — единственный список репозиториев. У каждой записи `[[repo]]` есть `name`, `path` (всегда `repos/<name>`), `url`, `ref` (ветка покоя), `branch_model` (`main-based` или `dev-based`, [branches.md](branches.md)) и `stack` (свободная подсказка для агентов).
+
+Необязательные поля записывает `/bootstrap` или разработчик вручную, пути указываются относительно клона:
+
+| Поле | Значение | Где показывается |
+| --- | --- | --- |
+| `env_file`, `env_example` | Файл окружения, который читает приложение, и его пример | строка «Окружение» в таблице команд клона в `AGENTS.md`, таблица в `docs/agents/environment.md` |
+| `env_notes` | Что отличается локально | колонка «Заметки» в `docs/agents/environment.md` |
+| `test_needs` | Что нужно тестам клона, например `PostgreSQL, запущенный бэкенд` | под таблицей команд клона |
+| `notes` | Всё остальное, что агентам нужно знать о командах | под таблицей команд клона |
+| `rules` | Файлы клона, которые агенты читают перед его правкой, список в одну строку, например `["CLAUDE.md", ".claude/rules/"]` | над таблицей команд клона |
+
+Его читает `scripts/repos.mjs`, без пакетов:
+
+| Команда | Что делает |
+| --- | --- |
+| `mise run add-repo` | В цикле спрашивает репозитории (URL, имя, ветку покоя, модель веток, стек), дописывает их в `repos.toml`, запускает `sync` и предлагает склонировать. `--yes` с `--name`, `--url`, `--ref`, `--branch-model` и `--stack` добавляет один репозиторий без вопросов |
+| `node scripts/repos.mjs set <name> key=value ...` | Задаёт необязательные поля одной записи (и `stack`), сохраняя все остальные строки и комментарии, затем запускает `sync`. Пустое значение удаляет поле; `rules` принимает пути через запятую или массив, например `["CLAUDE.md", ".claude/rules/"]` |
+| `mise run repos:sync` | Пересобирает всё, где перечислены репозитории, между маркерными комментариями |
+| `mise run repos:check` | Падает, когда `repos.toml` и сгенерированные файлы расходятся; входит в `mise run check` |
+
+`sync` записывает:
+
+| Файл | Раздел |
+| --- | --- |
+| `mise.toml` | `[bootstrap.repos]` между `# repos:begin` и `# repos:end`, всегда последним в файле |
+| `openspec/clones` | список клонов sdd-kit между `# repos:begin` и `# repos:end`, только когда есть `openspec/` |
+| `AGENTS.md` | таблицы команд (`<!-- repos:begin:commands -->`), с дополнительными задачами каждого клона из `mise-tasks/<name>/`, и правила веток (`<!-- repos:begin:branches -->`) |
+| `docs/agents/branches.md` | таблицу клонов и их моделей веток (`<!-- repos:begin -->`) |
+| `repos/README.md` | таблицу клонов (`<!-- repos:begin -->`) |
+| `docs/agents/environment.md` | таблицу файлов окружения (`<!-- repos:begin:env -->`), только когда маркеры есть |
+| `mise-tasks/<name>/` | заглушки `test`, `check`, `run` и `install`, только если их нет |
+
+Текст вне маркеров никогда не трогается, а сгенерированный текст следует языку проекта (`language` в `.copier-answers.yml`). Не правьте текст между маркерами вручную: следующий `sync` его перезапишет, а `check` сообщит о расхождении.
+
+Задача-заглушка переходит в клон и падает с сообщением «command not configured yet». `/bootstrap` в Claude Code или разработчик заменяет её последнюю строку собственной командой клона и удаляет комментарий `# repos:stub`; `sync` никогда не перезаписывает существующий файл задачи. `mise run setup` пропускает задачу `install`, которая всё ещё заглушка.
+
+Чтобы убрать репозиторий, удалите его запись из `repos.toml`, выполните `mise run repos:sync` и удалите `mise-tasks/<name>/`; `check` сообщает об оставшейся папке задач.
+
+## Задачи
+
+Каждая задача — отдельный исполняемый файл в `mise-tasks/`, они перечислены в [../../mise-tasks/README.md](../../mise-tasks/README.md). Задачи `<name>:*` ничего не повторяют из клонов. Они переходят в папку клона, вызывают его собственную команду и возвращают её код выхода. Если клона нет, задача падает с сообщением, в котором названы клон и `mise run clone`.
+
+`mise run pull` сначала обновляет метарепозиторий, а затем каждый клон, каждый на его текущей ветке, через `git pull --rebase --autostash`. Неудавшийся pull, конфликт, оставшийся stash или отсутствующий клон попадают в список «Not updated, resolve manually» и роняют задачу; rebase с конфликтом остаётся незавершённым. Репозиторий на ветке без upstream попадает в список «No upstream, not updated» и задачу не роняет.
+
+## sdd-kit
+
+Шаблон не содержит файлов sdd-kit и версии OpenSpec. `mise run kit:install` (его запускает первый `mise run setup`) и `mise run kit:update` вызывают `scripts/kit.sh`:
+
+1. Выбирает версию: `SDD_KIT_REF`, если задана; для `install` — уже установленную версию; иначе самый старший релизный тег `https://github.com/cmdtorch/sdd_kit.git` (`git ls-remote --tags`, без пре-релизов).
+2. Читает нужную киту версию OpenSpec из `npx github:cmdtorch/sdd_kit#<tag> --version` и фиксирует её командой `mise use "npm:@fission-ai/openspec@<version>"`.
+3. Запускает установщик кита с `--yes`, `--metarepo` с клонами из `repos.toml` и `--questions-language` по языку проекта. Установщик записывает `openspec/`, скиллы, команды и агентов кита в `.claude/`, добавляет свои хуки и разрешения в `.claude/settings.json` и свои строки в `.gitignore`.
+4. Запускает `mise run repos:sync`, чтобы в `openspec/clones` появились маркеры генерации, затем проверку состояния кита `node openspec/tooling/bin/doctor.mjs`.
+
+Всё, что записывает кит, коммитится: `openspec/`, `.claude/`, `.gitignore` и `mise.toml`, а также `mise.lock` и `.mise/locks/` (lock-файл зависимостей OpenSpec CLI), если они есть. Тогда вся команда работает с одной версией кита, не устанавливая его, а обновление приходит pull request, который можно проверить. Файлы кита никогда не правят вручную; установщик ведёт манифест хешей и не перезаписывает файл, изменённый локально.
+
+## Общая проверка
+
+`mise run check` запускает независимые шаги и печатает таблицу результатов. Каждый шаг запускается, даже если предыдущий упал.
+
+| Шаг | Что запускает |
+| --- | --- |
+| `<name>` | `mise run <name>:check` в каждом клоне: его собственные линтеры и проверки типов |
+| `code-rules` | `ast-grep test` и `ast-grep scan` по клонам; без правил шаг сообщает `no rules` |
+| `repos` | `scripts/repos.mjs check`: `repos.toml` против `mise.toml`, `openspec/clones`, папок задач и сгенерированной документации |
+
+Тесты клонов сюда не входят; им обычно нужна база данных или запущенный стек. Если собственная проверка клона уже падает на его ветке покоя, причина записывается в [../clone-backlog.md](../clone-backlog.md), и `check` остаётся красным, пока это не исправят в клоне.
+
+## Линт корня
+
+`mise run lint` проверяет только файлы метарепозитория.
+
+- `rumdl` проверяет Markdown, настройки в `.rumdl.toml`.
+- `typos` проверяет орфографию, настройки в `_typos.toml`.
+- `agnix --strict` проверяет настройки агента, настройки в `.agnix.toml`.
+- `scripts/check-agent-files.sh` падает на `CLAUDE.md`, `CLAUDE.local.md` и `.claude/CLAUDE.md` в корне и на относительной ссылке в `AGENTS.md`, которая ведёт на несуществующий файл.
+
+Клоны в `repos/` и изменения и спецификации в `openspec/` не проверяются. Не проверяются и файлы, которые OpenSpec и sdd-kit устанавливают и перезаписывают при обновлении: скиллы `openspec-*`, команды в `.claude/commands/`, агенты в `.claude/agents/`, `openspec/protocols/`, `openspec/schemas/` и `openspec/tooling/`.
+
+## Git-хуки метарепозитория
+
+`mise run setup` устанавливает хуки командой `hk install --mise`. Они работают только в git метарепозитория и в клоны не устанавливаются. У клонов свои хуки, их устанавливают собственные команды установки клонов.
+
+- `pre-commit` проверяет для коммитящихся файлов синтаксис задач в `mise-tasks/`, `mise tasks validate`, формат `mise.toml` и тесты правил, когда меняется `ast-grep/`.
+- `pre-push` запускает `mise run lint`.
+
+## Тесты метарепозитория
+
+`mise run test` запускает каждый `tests/*.sh` в своей временной папке. Тесты создают одноразовые git-репозитории вместо клонов и копию метарепозитория и проверяют на них задачи, скрипт реестра и хук агента. Им не нужны ни настоящие клоны, ни sdd-kit, ни сеть. Общие помощники лежат в `tests/lib.sh`.
+
+## Обновления шаблона
+
+Проект сгенерирован из Copier-шаблона sdd-metarepo; ответы лежат в `.copier-answers.yml`. `uvx copier update --trust` приносит улучшения шаблона в виде diff для проверки. Файлы, которые сгенерировал шаблон и изменил проект, получают маркеры конфликтов; сгенерированные разделы и `repos.toml` принадлежат проекту и обновляются командой `mise run repos:sync` после обновления.
+{% else -%}
+# Tools, tasks and hooks
+
+Read this before changing `mise.toml`, `repos.toml`, the tasks in `mise-tasks/`, the scripts in `scripts/`, `hk.pkl`, sdd-kit, `ast-grep` rules and the tests in `tests/`.
+
+## mise
+
+mise installs all root tools and runs all tasks. The tools are listed in `[tools]` in `mise.toml`: Node 24, ast-grep, hk, pkl, rumdl, typos, agnix, and the OpenSpec CLI that `mise run kit:install` pins. Exact versions and checksums live in `mise.lock`, which the first `mise run setup` writes and which is committed. Update with `mise lock --bump`, then run `mise run test` and `mise run check`.
+
+Node 24 runs the agent hook, the registry script, the sdd-kit checks and hooks.
+
+## Repository registry
+
+`repos.toml` is the only list of repositories. Each `[[repo]]` entry has `name`, `path` (always `repos/<name>`), `url`, `ref` (the rest branch), `branch_model` (`main-based` or `dev-based`, [branches.md](branches.md)) and `stack` (a free-text hint for agents).
+
+Optional fields, written by `/bootstrap` or by hand, with paths relative to the clone:
+
+| Field | Meaning | Shown in |
+| --- | --- | --- |
+| `env_file`, `env_example` | The environment file the application reads and its example | the Environment row of the clone's command table in `AGENTS.md`, the table in `docs/agents/environment.md` |
+| `env_notes` | What differs locally | the Notes column in `docs/agents/environment.md` |
+| `test_needs` | What the clone's tests need, for example `PostgreSQL, the backend running` | under the clone's command table |
+| `notes` | Anything else agents must know about the commands | under the clone's command table |
+| `rules` | The clone's files agents read before editing it, a one-line list such as `["CLAUDE.md", ".claude/rules/"]` | above the clone's command table |
+
+`scripts/repos.mjs` reads it, with no packages:
+
+| Command | What it does |
+| --- | --- |
+| `mise run add-repo` | Asks for repositories in a loop (URL, name, rest branch, branch model, stack), appends them to `repos.toml`, runs `sync` and offers to clone. `--yes` with `--name`, `--url`, `--ref`, `--branch-model` and `--stack` adds one repository without questions |
+| `node scripts/repos.mjs set <name> key=value ...` | Sets optional fields of one entry (and `stack`), keeping every other line and comment, then runs `sync`. An empty value removes a field; `rules` takes comma-separated paths or an array such as `["CLAUDE.md", ".claude/rules/"]` |
+| `mise run repos:sync` | Regenerates everything that lists the repositories, between marker comments |
+| `mise run repos:check` | Fails when `repos.toml` and the generated files disagree; part of `mise run check` |
+
+`sync` writes:
+
+| File | Section |
+| --- | --- |
+| `mise.toml` | `[bootstrap.repos]` between `# repos:begin` and `# repos:end`, kept last in the file |
+| `openspec/clones` | the sdd-kit clone list between `# repos:begin` and `# repos:end`, only when `openspec/` exists |
+| `AGENTS.md` | the command tables (`<!-- repos:begin:commands -->`), with each clone's extra tasks from `mise-tasks/<name>/`, and the branch rules (`<!-- repos:begin:branches -->`) |
+| `docs/agents/branches.md` | the table of clones and their branch models (`<!-- repos:begin -->`) |
+| `repos/README.md` | the clone table (`<!-- repos:begin -->`) |
+| `docs/agents/environment.md` | the environment file table (`<!-- repos:begin:env -->`), only when the markers exist |
+| `mise-tasks/<name>/` | the stubs `test`, `check`, `run` and `install`, only when missing |
+
+Text outside the markers is never touched, and the generated text follows the project language (`language` in `.copier-answers.yml`). Do not edit inside the markers by hand: the next `sync` overwrites it and `check` reports it.
+
+A stub task changes into the clone and fails with "command not configured yet". `/bootstrap` in Claude Code, or a developer, replaces its last line with the clone's own command and deletes the `# repos:stub` comment; `sync` never overwrites an existing task file. `mise run setup` skips an `install` task that is still a stub.
+
+To remove a repository, delete its entry from `repos.toml`, run `mise run repos:sync` and delete `mise-tasks/<name>/`; `check` reports a leftover task folder.
+
+## Tasks
+
+Each task is a separate executable file in `mise-tasks/`, listed in [../../mise-tasks/README.md](../../mise-tasks/README.md). The `<name>:*` tasks repeat nothing from the clones. They change into the clone folder, call its own command and return its exit code. If the clone is missing, the task fails with a message naming the clone and `mise run clone`.
+
+`mise run pull` updates the meta-repository first and then every clone, each on its current branch, with `git pull --rebase --autostash`. A failed pull, a conflict, a leftover stash or a missing clone is listed under "Not updated, resolve manually" and fails the task; a conflicting rebase is left in progress. A repository on a branch without upstream is listed under "No upstream, not updated" and does not fail the task.
+
+## sdd-kit
+
+The template ships no sdd-kit files and no OpenSpec version. `mise run kit:install` (run by the first `mise run setup`) and `mise run kit:update` call `scripts/kit.sh`:
+
+1. Picks the version: `SDD_KIT_REF` when set; for `install` the version already installed; otherwise the highest release tag of `https://github.com/cmdtorch/sdd_kit.git` (`git ls-remote --tags`, pre-releases left out).
+2. Reads the OpenSpec version the kit needs from `npx github:cmdtorch/sdd_kit#<tag> --version` and pins it with `mise use "npm:@fission-ai/openspec@<version>"`.
+3. Runs the kit's installer with `--yes`, `--metarepo` with the clones from `repos.toml` and `--questions-language` from the project language. The installer writes `openspec/`, the kit skills, commands and agents in `.claude/`, merges its hooks and permissions into `.claude/settings.json` and adds its lines to `.gitignore`.
+4. Runs `mise run repos:sync` so `openspec/clones` carries the generated markers, then the kit's health check `node openspec/tooling/bin/doctor.mjs`.
+
+Everything the kit writes is committed: `openspec/`, `.claude/`, `.gitignore` and `mise.toml`, and `mise.lock` and `.mise/locks/` (the OpenSpec CLI's dependency lock) when present. The whole team then works with one kit version without installing it, and an update arrives as a reviewable pull request. Kit files are never edited by hand; the installer keeps a hash manifest and does not overwrite a locally edited file.
+
+## Single check
+
+`mise run check` runs independent steps and prints a result table. Each step runs even if the previous one failed.
+
+| Step | What it runs |
+| --- | --- |
+| `<name>` | `mise run <name>:check` in each clone: its own linters and type checks |
+| `code-rules` | `ast-grep test` and `ast-grep scan` over the clones; without rules the step reports `no rules` |
+| `repos` | `scripts/repos.mjs check`: `repos.toml` against `mise.toml`, `openspec/clones`, the task folders and the generated docs |
+
+Clone tests are not included; they usually need a database or a running stack. If a clone's own check already fails on its rest branch, the reason goes into [../clone-backlog.md](../clone-backlog.md), and `check` stays red until it is fixed in the clone.
+
+## Root lint
+
+`mise run lint` checks only the meta-repository's files.
+
+- `rumdl` checks Markdown, configured in `.rumdl.toml`.
+- `typos` checks spelling, configured in `_typos.toml`.
+- `agnix --strict` checks agent settings, configured in `.agnix.toml`.
+- `scripts/check-agent-files.sh` fails on `CLAUDE.md`, `CLAUDE.local.md` and `.claude/CLAUDE.md` in the root, and on a relative link in `AGENTS.md` that points to a missing file.
+
+The clones in `repos/` and the changes and specs in `openspec/` are not checked. Neither are the files that OpenSpec and sdd-kit install and overwrite on update: the `openspec-*` skills, commands in `.claude/commands/`, agents in `.claude/agents/`, `openspec/protocols/`, `openspec/schemas/` and `openspec/tooling/`.
+
+## Meta-repository git hooks
+
+`mise run setup` installs the hooks with `hk install --mise`. They run only in the meta-repository's git and are not installed into the clones. The clones have their own hooks, installed by the clones' own install commands.
+
+- `pre-commit` checks, for the committed files, the syntax of the tasks in `mise-tasks/`, `mise tasks validate`, the format of `mise.toml`, and the rule tests when `ast-grep/` changes.
+- `pre-push` runs `mise run lint`.
+
+## Meta-repository tests
+
+`mise run test` runs each `tests/*.sh` in its own temporary folder. The tests create throwaway git repositories as stand-in clones and a copy of the meta-repository, and check the tasks, the registry script and the agent hook against them. They need neither the real clones, nor sdd-kit, nor the network. Shared helpers live in `tests/lib.sh`.
+
+## Template updates
+
+The project was generated from the sdd-metarepo Copier template; the answers are in `.copier-answers.yml`. `uvx copier update --trust` brings the template's improvements as a diff to review. Files the template generated and the project changed get conflict markers; the generated sections and `repos.toml` belong to the project and are refreshed with `mise run repos:sync` after the update.
+{% endif -%}

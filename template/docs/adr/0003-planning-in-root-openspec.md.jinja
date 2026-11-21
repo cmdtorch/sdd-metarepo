@@ -1,0 +1,42 @@
+---
+status: accepted
+---
+
+{% if language == 'ru' -%}
+
+# Всё планирование идёт в корневом OpenSpec
+
+Каждое изменение OpenSpec, затрагивает оно несколько клонов или один, планируется, отслеживается и архивируется в `openspec/` метарепозитория с sdd-kit в режиме метарепозитория. В клонах остаются только код и тесты. Небольшие правки можно делать без OpenSpec. Причина: фичи обычно затрагивают несколько частей системы, например API и его интерфейс, и один агент с одним набором спецификаций видит их целиком.
+
+## Рассмотренные варианты
+
+**Отдельный OpenSpec в каждом репозитории, а корень только связывает изменения.** Требования одной фичи оказываются в нескольких местах, а у репозитория без OpenSpec их нет вовсе.
+
+**Смешанный: общие изменения в корне, изменения одного репозитория в этом репозитории.** Несколько мест для спецификаций одной системы, и непонятно, где искать требование.
+
+**Только корневой OpenSpec (выбрано).** Одно место для требований ко всем частям.
+
+## Последствия
+
+- Собственный `openspec/` клона, если он есть, из корня не меняется; sdd-kit это запрещает. Перенос его спецификаций в корень или его удаление — это запись в бэклоге клонов ([../clone-backlog.md](../clone-backlog.md)).
+- Агент запускается из корня, иначе хуки sdd-kit не работают.
+- sdd-kit устанавливается один раз в корень, и его файлы коммитятся, поэтому у каждого разработчика одинаковые хуки и проверки.
+{% else -%}
+# All planning happens in the root OpenSpec
+
+Every OpenSpec change, whether it touches several clones or one, is planned, tracked and archived in the meta-repository's `openspec/` with sdd-kit in meta-repository mode. Only code and tests stay in the clones. Small edits can be made without OpenSpec. The reason: features usually touch several parts of the system, for example an API and its interface, and one agent with one set of specs sees them whole.
+
+## Considered Options
+
+**A separate OpenSpec in each repository, with the root only linking changes.** The requirements of one feature end up in several places, and a repository without OpenSpec has none at all.
+
+**Mixed: shared changes in the root, single-repository changes in that repository.** Several places for the specs of one system, and it is unclear where to look for a requirement.
+
+**Only the root OpenSpec (chosen).** One place for the requirements of every part.
+
+## Consequences
+
+- A clone's own `openspec/`, if it has one, is not changed from the root; sdd-kit forbids it. Moving its specs into the root, or removing it, is a clone backlog entry ([../clone-backlog.md](../clone-backlog.md)).
+- The agent is started from the root, otherwise the sdd-kit hooks do not work.
+- sdd-kit is installed once into the root and its files are committed, so every developer has the same hooks and checks.
+{% endif -%}

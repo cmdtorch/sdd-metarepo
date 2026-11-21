@@ -1,0 +1,253 @@
+{% if language == 'ru' -%}
+
+# AGENTS.md
+
+Метарепозиторий {{ project_name }}. В нём лежат общие правила для агентов, OpenSpec с sdd-kit, решения и проверки. Код приложений живёт в клонах в `repos/`, перечисленных в `repos.toml`; у каждого клона свой git, свои ветки и свои правила.
+
+Запускайте агента из корня этого репозитория, даже для задачи в одном клоне. Настройки `.claude/` и хуки sdd-kit работают, только когда агент запущен из корня ([docs/agents/repository-layout.md](docs/agents/repository-layout.md)).
+
+## Язык
+
+- Документы, описания задач в чате, вывод команд для людей, сообщения коммитов и pull request пишутся на русском языке.
+- Артефакты OpenSpec следуют правилам sdd-kit: они пишутся на английском, а уточняющие вопросы — на русском.
+- Код, идентификаторы, комментарии в коде, сообщения тестов, имена файлов и команд остаются на английском, как и ключевые слова и заголовки, которые разбирают проверки sdd-kit.
+- Файлы, которыми управляет sdd-kit (`openspec/protocols/`, `openspec/schemas/`, `openspec/tooling/`, скиллы `openspec-*`, `.claude/commands/` и `.claude/agents/`), остаются на английском: их не переводят и не правят вручную.
+
+## Планирование
+
+- Каждое изменение OpenSpec планируется, отслеживается и архивируется в корневом `openspec/`, даже если оно затрагивает один клон. В клонах остаются только код и тесты ([ADR 0003](docs/adr/0003-planning-in-root-openspec.md)).
+- Небольшие правки можно делать без OpenSpec, в метарепозитории или прямо в клоне, в отдельной ветке и через pull request.
+- Папку `openspec/` внутри клона из корня не меняют.
+- sdd-kit устанавливается командой `mise run kit:install` и обновляется командой `mise run kit:update`; его файлы коммитятся ([docs/agents/tooling.md](docs/agents/tooling.md)).
+
+## Ветки
+
+- В каждом клоне `main` — это продакшен, а ветка покоя (`ref` в `repos.toml`, обычно `dev`) — тестовый сервер. Каждый клон следует своей модели веток, main-based или dev-based:
+
+<!-- repos:begin:branches -->
+
+Репозиториев пока нет; каждый репозиторий, добавленный через `mise run add-repo`, получит здесь своё правило.
+
+<!-- repos:end:branches -->
+
+- Рабочая ветка main-based никогда не сливается в ветку покоя напрямую, только через pull request. Конфликты с веткой покоя решаются в ветке слияния `merge/<name>-into-<rest branch>`; исправления после ревью или QA идут в рабочую ветку.
+- Между задачами клон стоит на своей ветке покоя. Перед каждым новым тикетом или задачей и перед созданием её ветки выполните `mise run pull` и `mise run status`.
+- Рабочая ветка метарепозитория создаётся от обновлённой `main`. `main` метарепозитория меняется только через pull request.
+- Команды git выполняются в папке того репозитория, к которому они относятся: `git -C repos/<name> ...`. В корне `git` относится только к самому метарепозиторию.
+{%- if agent_git_default == 'on' %}
+- По умолчанию агент коммитит и пушит; каждый разработчик может отключить и то и другое для себя. Агент никогда не коммитит и не пушит в `main`. Это проверяет хук `.claude/hooks/agent-git-guard.mjs` ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{%- else %}
+- Агент коммитит и пушит, только если разработчик включил это для себя; по умолчанию и то и другое запрещено. Агент никогда не коммитит и не пушит в `main`. Это проверяет хук `.claude/hooks/agent-git-guard.mjs` ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{%- endif %}
+- Агент никогда не сливает pull request и никогда не делает слияние в `main`, `dev` или ветку покоя ни в одном репозитории; сливает разработчик вручную.
+- Никакого упоминания Claude в сообщениях коммитов, заголовках, описаниях и комментариях pull request ни в одном репозитории. Хук такое отклоняет.
+- Сообщения коммитов следуют Conventional Commits.
+
+Подробности в [docs/agents/branches.md](docs/agents/branches.md).
+{%- if tracker != 'none' %}
+
+## {{ tracker_name }} и тикеты
+
+- {{ tracker_name }} для агента только для чтения: он читает тикеты, комментарии, статус и вложения и ничего не меняет в {{ tracker_name }}.
+- Неясные места тикета уходят разработчику в чат, на языке тикета, нумерованным списком: один короткий вопрос на строку, без текста до и после списка. Разработчик публикует их в тикете.
+- Когда работа по изменению OpenSpec для тикета сделана и проверена, агент сам открывает pull request, если коммит и пуш агента включены.
+
+Подробности, в том числе заголовки pull request, в [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md).
+{%- else %}
+
+## Pull request
+
+- Когда работа по изменению OpenSpec сделана и проверена, агент сам открывает pull request, если коммит и пуш агента включены.
+
+Подробности, в том числе заголовки pull request, в [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md).
+{%- endif %}
+
+## Правила клонов
+
+- Перед правкой файла в клоне прочитайте собственные правила клона: его `AGENTS.md`, `CLAUDE.md`, `.claude/rules/` и `README.md`, какие из них есть. `CLAUDE.md` клона может отсутствовать в git и существовать только на машине разработчика; если он есть, прочитайте его.
+- Собственные git-хуки клонов срабатывают на коммит в клоне как обычно. Не обходите их через `--no-verify`.
+- Правки клона коммитятся в репозиторий клона. Если правка в клоне желательна, но не входит в текущую задачу, запишите её в [docs/clone-backlog.md](docs/clone-backlog.md).
+
+## Команды
+
+Все команды запускаются из корня. Каждая вызывает собственную команду клона в его папке и возвращает её код выхода. Тесты и проверки клонов запускайте этими командами. `mise run add-repo` создаёт задачи `mise run <name>:*` как заглушки; `/bootstrap` в Claude Code или разработчик записывает собственную команду клона в `mise-tasks/<name>/`.
+
+<!-- repos:begin:commands -->
+
+Репозиториев пока нет. Добавьте первый командой `mise run add-repo`; она создаст задачи `mise run <имя>:*`.
+
+<!-- repos:end:commands -->
+
+### Метарепозиторий
+
+| Что | Команда |
+| --- | --- |
+| Настроить машину | `mise run setup` |
+| Добавить репозиторий | `mise run add-repo` |
+| Пересобрать списки репозиториев из `repos.toml` | `mise run repos:sync` |
+| Склонировать недостающие клоны | `mise run clone` |
+| Обновить метарепозиторий и клоны | `mise run pull` |
+| Ветки и изменения клонов | `mise run status` |
+| Общая проверка клонов | `mise run check` |
+| Линт текстов и настроек агента | `mise run lint` |
+| Тесты метарепозитория | `mise run test` |
+| Установить или обновить sdd-kit | `mise run kit:install`, `mise run kit:update` |
+
+Файлы окружения разработчики пишут сами; `setup` их не создаёт и не меняет ([docs/agents/environment.md](docs/agents/environment.md)).
+{%- if e2e %}
+
+## End-to-end тесты
+
+End-to-end тесты в браузере, которые охватывают несколько клонов сразу, живут в корневой папке `e2e/` ([e2e/README.md](e2e/README.md)). Первая фича, которой такие тесты нужны, создаёт настройку папки. Собственные браузерные тесты клона остаются в клоне.
+{%- endif %}
+
+## Проверки
+
+- Общее правило для кода клонов — это правило `ast-grep` с тестом, а не строка в этом файле. Порядок действий описан в скилле `add-ast-grep-rule`.
+- Замечание в клоне исправляйте в клоне; не ослабляйте правило метарепозитория без обсуждения.
+- `repos.toml` — единственный список репозиториев. После ручной правки выполните `mise run repos:sync`; `mise run check` падает, пока списки расходятся.
+- Не создавайте в корне `CLAUDE.md`, `CLAUDE.local.md` или `.claude/CLAUDE.md`. Любой из них мешает Claude Code читать этот файл ([ADR 0002](docs/adr/0002-only-agents-md.md)); `mise run lint` их ловит.
+
+## Навигация
+
+| Область работы | Что читать |
+| --- | --- |
+| Структура, запуск агента, клоны | [docs/agents/repository-layout.md](docs/agents/repository-layout.md) |
+| mise, задачи, хуки, sdd-kit, ast-grep | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| Настройки агента, разрешения, коммит и пуш агента | [docs/agents/agent-settings.md](docs/agents/agent-settings.md) |
+| Ветки клонов и метарепозитория | [docs/agents/branches.md](docs/agents/branches.md) |
+| {% if tracker != 'none' %}Тикеты {{ tracker_name }}, вопросы, pull request{% else %}Pull request{% endif %} | [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md) |
+| Файлы окружения | [docs/agents/environment.md](docs/agents/environment.md) |
+| Список репозиториев | [repos/README.md](repos/README.md) |
+{%- if e2e %}
+| End-to-end тесты | [e2e/README.md](e2e/README.md) |
+{%- endif %}
+| Почему всё устроено так, как устроено | [docs/adr/README.md](docs/adr/README.md) |
+| Правки клонов на потом | [docs/clone-backlog.md](docs/clone-backlog.md) |
+| Термины | [GLOSSARY.md](GLOSSARY.md) |
+{% else -%}
+# AGENTS.md
+
+The {{ project_name }} meta-repository. It holds the shared agent rules, OpenSpec with sdd-kit, decisions and checks. The application code lives in the clones in `repos/`, listed in `repos.toml`; each clone has its own git, branches and rules.
+
+Start the agent from the root of this repository, also for a task in a single clone. The `.claude/` settings and the sdd-kit hooks work only when started from the root ([docs/agents/repository-layout.md](docs/agents/repository-layout.md)).
+
+## Language
+
+- Everything in this repository is written in {{ language_name }}: documents, OpenSpec artifacts including clarifying questions, code comments, test messages, task descriptions, command output meant for people, commit messages and pull requests.
+- Code identifiers, file and command names stay in English, and so do the keywords and headings that sdd-kit's checks parse.
+- Files managed by sdd-kit (`openspec/protocols/`, `openspec/schemas/`, `openspec/tooling/`, the `openspec-*` skills, `.claude/commands/` and `.claude/agents/`) are never translated or edited by hand.
+
+## Planning
+
+- Every OpenSpec change is planned, tracked and archived in the root `openspec/`, even if it touches one clone. Only code and tests stay in the clones ([ADR 0003](docs/adr/0003-planning-in-root-openspec.md)).
+- Small edits can be made without OpenSpec, in the meta-repository or directly in a clone, with a branch and a pull request.
+- An `openspec/` folder inside a clone is not changed from the root.
+- sdd-kit is installed with `mise run kit:install` and updated with `mise run kit:update`; its files are committed ([docs/agents/tooling.md](docs/agents/tooling.md)).
+
+## Branches
+
+- In every clone `main` is production and the rest branch (`ref` in `repos.toml`, usually `dev`) is the test server. Each clone follows its branch model, main-based or dev-based:
+
+<!-- repos:begin:branches -->
+
+No repositories yet; each repository added with `mise run add-repo` gets its rule here.
+
+<!-- repos:end:branches -->
+
+- A main-based work branch is never merged into the rest branch directly, only through a pull request. Conflicts with the rest branch go through a merge branch `merge/<name>-into-<rest branch>`; fixes after review or QA go on the work branch.
+- At rest a clone is on its rest branch. Before each new ticket or task, and before creating its branch, run `mise run pull` and `mise run status`.
+- A meta-repository working branch is created from an updated `main`. The meta-repository's `main` changes only through a pull request.
+- Git commands run in the folder of the repository they concern: `git -C repos/<name> ...`. In the root, `git` refers only to the meta-repository itself.
+{%- if agent_git_default == 'on' %}
+- The agent commits and pushes by default; each developer can turn either off for themselves. The agent never commits or pushes to `main`. The hook `.claude/hooks/agent-git-guard.mjs` checks this ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{%- else %}
+- The agent commits and pushes only if the developer enabled it for themselves; by default both are forbidden. The agent never commits or pushes to `main`. The hook `.claude/hooks/agent-git-guard.mjs` checks this ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{%- endif %}
+- The agent never merges a pull request and never merges into `main`, `dev` or a rest branch in any repository; the developer merges by hand.
+- No Claude attribution in commit messages, pull request titles, descriptions or comments, in any repository. The hook refuses it.
+- Commit messages follow Conventional Commits.
+
+Details in [docs/agents/branches.md](docs/agents/branches.md).
+{%- if tracker != 'none' %}
+
+## {{ tracker_name }} and tickets
+
+- {{ tracker_name }} is read-only for the agent: it reads tickets, comments, status and attachments and changes nothing in {{ tracker_name }}.
+- Unclear ticket points go to the developer in the chat, in the ticket's language as a numbered list, one short question per line, with nothing before or after it. The developer posts them to the ticket.
+- When the work of a ticket's OpenSpec change is done and checked, the agent opens the pull request itself, if agent commit and push are enabled.
+
+Details, including pull request titles, in [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md).
+{%- else %}
+
+## Pull requests
+
+- When the work of an OpenSpec change is done and checked, the agent opens the pull request itself, if agent commit and push are enabled.
+
+Details, including pull request titles, in [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md).
+{%- endif %}
+
+## Clone rules
+
+- Before editing a file in a clone, read the clone's own rules: its `AGENTS.md`, `CLAUDE.md`, `.claude/rules/` and `README.md`, whichever exist. A clone's `CLAUDE.md` may be absent from git and exist only on the developer's machine; read it when it is there.
+- The clones' own git hooks run on a commit in a clone as usual. Do not bypass them with `--no-verify`.
+- Clone edits are committed to the clone's repository. If an edit in a clone is desirable but not part of the current task, record it in [docs/clone-backlog.md](docs/clone-backlog.md).
+
+## Commands
+
+All commands run from the root. Each calls the clone's own command in its folder and returns its exit code. Run clone tests and checks with these commands. `mise run add-repo` creates the `mise run <name>:*` tasks as stubs; `/bootstrap` in Claude Code, or a developer, writes the clone's own command into `mise-tasks/<name>/`.
+
+<!-- repos:begin:commands -->
+
+No repositories yet. Add one with `mise run add-repo`; it creates the `mise run <name>:*` tasks.
+
+<!-- repos:end:commands -->
+
+### Meta-repository
+
+| What | Command |
+| --- | --- |
+| Set up the machine | `mise run setup` |
+| Add a repository | `mise run add-repo` |
+| Regenerate the repository lists from `repos.toml` | `mise run repos:sync` |
+| Clone the missing clones | `mise run clone` |
+| Update the meta-repository and the clones | `mise run pull` |
+| Clone branches and changes | `mise run status` |
+| Single check of the clones | `mise run check` |
+| Lint texts and agent settings | `mise run lint` |
+| Meta-repository tests | `mise run test` |
+| Install or update sdd-kit | `mise run kit:install`, `mise run kit:update` |
+
+Developers write the environment files themselves; `setup` neither creates nor changes them ([docs/agents/environment.md](docs/agents/environment.md)).
+{%- if e2e %}
+
+## End-to-end tests
+
+End-to-end browser tests that cover several clones together live in the root `e2e/` folder ([e2e/README.md](e2e/README.md)). The first feature that needs such tests creates the folder's setup. A clone's own browser tests stay in its clone.
+{%- endif %}
+
+## Checks
+
+- A shared rule for clone code is an `ast-grep` rule with a test, not a line in this file. The procedure is in the `add-ast-grep-rule` skill.
+- Fix a finding in a clone in the clone; do not weaken a meta-repository rule without discussion.
+- `repos.toml` is the only list of repositories. After a hand edit run `mise run repos:sync`; `mise run check` fails while the lists disagree.
+- Do not create `CLAUDE.md`, `CLAUDE.local.md` or `.claude/CLAUDE.md` in the root. Any of them stops Claude Code from reading this file ([ADR 0002](docs/adr/0002-only-agents-md.md)); `mise run lint` catches them.
+
+## Navigation
+
+| Area of work | What to read |
+| --- | --- |
+| Layout, starting the agent, clones | [docs/agents/repository-layout.md](docs/agents/repository-layout.md) |
+| mise, tasks, hooks, sdd-kit, ast-grep | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| Agent settings, permissions, agent commit and push | [docs/agents/agent-settings.md](docs/agents/agent-settings.md) |
+| Clone and meta-repository branches | [docs/agents/branches.md](docs/agents/branches.md) |
+| {% if tracker != 'none' %}{{ tracker_name }} tickets, questions, pull requests{% else %}Pull requests{% endif %} | [docs/agents/ticket-workflow.md](docs/agents/ticket-workflow.md) |
+| Environment files | [docs/agents/environment.md](docs/agents/environment.md) |
+| Repository list | [repos/README.md](repos/README.md) |
+{%- if e2e %}
+| End-to-end tests | [e2e/README.md](e2e/README.md) |
+{%- endif %}
+| Why things are the way they are | [docs/adr/README.md](docs/adr/README.md) |
+| Clone edits for later | [docs/clone-backlog.md](docs/clone-backlog.md) |
+| Terms | [GLOSSARY.md](GLOSSARY.md) |
+{% endif -%}

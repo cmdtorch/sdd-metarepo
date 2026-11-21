@@ -1,0 +1,12 @@
+# Application clones: each has its own git, the meta-repository does not track them.
+repos/*
+!repos/README.md
+
+# Personal mise settings are not committed.
+mise.local.toml
+mise.local.lock
+
+# Personal agent settings (agent commit and push, docs/agents/agent-settings.md).
+.claude/settings.local.json
+
+.DS_Store

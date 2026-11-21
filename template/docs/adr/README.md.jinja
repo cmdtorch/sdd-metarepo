@@ -1,0 +1,40 @@
+{% if language == 'ru' -%}
+
+# docs/adr
+
+Решения, которые касаются всех репозиториев и самого метарепозитория. Решение для одного клона записывается в этом клоне.
+
+## Журнал
+
+| Номер | Решение | Статус |
+| --- | --- | --- |
+| [0001](0001-clones-via-mise-bootstrap-repos.md) | Клоны из реестра `repos.toml` через `[bootstrap.repos]` в mise, без сабмодулей | accepted |
+| [0002](0002-only-agents-md.md) | Только `AGENTS.md`, без `CLAUDE.md` | accepted |
+| [0003](0003-planning-in-root-openspec.md) | Всё планирование в корневом OpenSpec | accepted |
+| [0004](0004-agent-commit-push-opt-in.md) | Агент коммитит и пушит только с разрешения и никогда в `main` | accepted |
+
+## Формат
+
+Файл называется `<номер>-<slug>.md`; номер из четырёх цифр и никогда не используется повторно. В front matter стоит `status: accepted`; при пересмотре старое решение получает `superseded` и ссылку на новое, а не удаляется. Заголовок формулирует само решение. Дальше идут абзац с решением и его причиной, раздел «Рассмотренные варианты» с отклонёнными вариантами и раздел «Последствия» с ценой решения.
+
+Запись нужна, чтобы агент не открывал заново уже принятое решение. Вариант, который рассмотрели и отклонили, записывается вместе с причиной, чтобы агент не предложил его снова.
+{% else -%}
+# docs/adr
+
+Decisions that apply to all repositories and to the meta-repository itself. A decision for a single clone is recorded in that clone.
+
+## Log
+
+| Number | Decision | Status |
+| --- | --- | --- |
+| [0001](0001-clones-via-mise-bootstrap-repos.md) | Clones from the `repos.toml` registry through `[bootstrap.repos]` in mise, without submodules | accepted |
+| [0002](0002-only-agents-md.md) | Only `AGENTS.md`, without `CLAUDE.md` | accepted |
+| [0003](0003-planning-in-root-openspec.md) | All planning in the root OpenSpec | accepted |
+| [0004](0004-agent-commit-push-opt-in.md) | The agent commits and pushes only with permission, never to `main` | accepted |
+
+## Format
+
+The file is named `<number>-<slug>.md`; the number has four digits and is never reused. The front matter has `status: accepted`; when revisited, the old decision gets `superseded` and a link to the new one instead of being deleted. The title states the decision itself. Then come a paragraph with the decision and its reason, a "Considered Options" section with the rejected options, and a "Consequences" section with the cost.
+
+The record exists so the agent does not reopen a decision that was already made. An option that was considered and rejected is written down with its reason, so the agent will not propose it again.
+{% endif -%}

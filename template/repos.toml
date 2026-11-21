@@ -1,0 +1,24 @@
+# The repositories of this meta-repository: the source of truth for the clone list.
+# Add with `mise run add-repo`; after a hand edit run `mise run repos:sync`, which
+# regenerates [bootstrap.repos] in mise.toml, openspec/clones, the tables in AGENTS.md,
+# docs/agents/branches.md and repos/README.md, and the task stubs in mise-tasks/<name>/.
+#
+# [[repo]]
+# name = "api"                            clone name: folder repos/<name>, tasks mise run <name>:*
+# path = "repos/api"                      always repos/<name>
+# url = "git@github.com:org/api.git"      git URL
+# ref = "dev"                             branch the clone rests on (the test server branch)
+# branch_model = "main-based"             main-based or dev-based (docs/agents/branches.md)
+# stack = "Go, PostgreSQL"                free-text hint for agents
+#
+# Optional fields, filled by /bootstrap (`node scripts/repos.mjs set <name> key=value`) or by hand;
+# paths are relative to the clone:
+# env_file = ".env"                       environment file the application reads (written by developers)
+# env_example = ".env.example"            its example in the clone
+# env_notes = "DB_HOST=localhost locally" what differs locally (docs/agents/environment.md)
+# test_needs = "PostgreSQL"               what the clone's tests need
+# notes = "check runs without a database" anything else about the commands
+# rules = ["CLAUDE.md", ".claude/rules/"] the clone's files agents read before editing it
+#
+# Extra tasks (a worker, migrations) are files next to the four standard ones in
+# mise-tasks/<name>/; AGENTS.md lists them with their #MISE description.

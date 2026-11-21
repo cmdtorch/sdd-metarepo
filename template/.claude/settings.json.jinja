@@ -1,0 +1,39 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+{%- if agent_git_default == 'on' %}
+  "env": {
+    "METAREPO_AGENT_COMMIT": "1",
+    "METAREPO_AGENT_PUSH": "1"
+  },
+{%- endif %}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-git-guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(mise run status)",
+      "Bash(mise run lint)",
+      "Bash(mise run test)",
+      "Bash(mise run test *)",
+      "Bash(mise run check)",
+      "Bash(mise run repos:check)",
+      "Bash(node scripts/repos.mjs check)",
+      "Bash(node scripts/repos.mjs list)"
+    ]
+  }
+}

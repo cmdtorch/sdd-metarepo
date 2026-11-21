@@ -1,0 +1,20 @@
+{% if language == 'ru' -%}
+
+# rule-tests
+
+Тесты правил. Для правила `<id>` есть файл `<id>-test.yml` с полем `id` и двумя списками.
+
+- `valid` перечисляет код, на котором правило молчит.
+- `invalid` перечисляет код, на котором правило срабатывает.
+
+Тесты запускает `ast-grep test --skip-snapshot-tests`. Флаг отключает снапшоты, которые проверяют текст сообщений и здесь не используются. Тот же запуск есть в pre-commit хуке (`hk.pkl`) и в задаче `mise run check`.
+{% else -%}
+# rule-tests
+
+Rule tests. For rule `<id>` there is a file `<id>-test.yml` with an `id` field and two lists.
+
+- `valid` lists code on which the rule stays silent.
+- `invalid` lists code on which the rule fires.
+
+`ast-grep test --skip-snapshot-tests` runs the tests. The flag turns off snapshots, which check message text and are not used here. The same run is in the pre-commit hook (`hk.pkl`) and in the `mise run check` task.
+{% endif -%}

@@ -1,0 +1,11 @@
+# Answers for a Russian project; tests/render.sh renders it.
+project_name: Ромашка
+project_slug: romashka
+github_org: romashka-team
+language: ru
+tracker: github
+agent_git_default: "on"
+e2e: false
+feature_prefix: feature/
+bugfix_prefix: fix/
+run_setup: false

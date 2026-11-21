@@ -1,0 +1,154 @@
+{% if language == 'ru' -%}
+
+# {{ project_name }}
+
+Отсюда команда разрабатывает фичи во всех репозиториях {{ project_name }} с одним агентом, одним OpenSpec и одним набором проверок. Код остаётся в репозиториях приложений, склонированных в `repos/`; в этом репозитории лежат правила для агентов, спецификации, решения и проверки. Он сгенерирован из Copier-шаблона [sdd-metarepo](https://github.com/cmdtorch/sdd-metarepo), с [sdd-kit](https://github.com/cmdtorch/sdd_kit) поверх OpenSpec.
+
+## Быстрый старт
+
+Нужны [mise](https://mise.jdx.dev) и git (Node и остальные инструменты ставит mise), а также доступ к репозиториям из `repos.toml` (обычно SSH-ключ, добавленный в GitHub).
+
+```sh
+git clone git@github.com:{{ github_org }}/{{ project_slug }}.git
+cd {{ project_slug }}
+mise trust
+mise run setup
+```
+
+`setup` устанавливает инструменты корня и git-хуки метарепозитория, устанавливает sdd-kit, если в проекте его ещё нет, записывает `mise.lock`, если его нет, спрашивает репозитории, если `repos.toml` пуст, клонирует каждый репозиторий в `repos/<name>` на его ветке покоя и устанавливает их зависимости и git-хуки их собственными командами. Повторный запуск безопасен: существующие клоны остаются как есть.
+
+После `setup` создайте файлы окружения каждого приложения, как описано в [docs/agents/environment.md](docs/agents/environment.md), затем проверьте всё командой `mise run check`.
+
+## Сразу после генерации
+
+1. Добавьте репозитории командой `mise run add-repo`; первый `setup` сам их спрашивает. Каждый получает запись в `repos.toml`, заглушки задач `mise run <name>:test|check|run|install` и строки в сгенерированных таблицах.
+2. Запустите Claude Code в корне и выполните `/bootstrap` — AI-онбординг. Он читает каждый клон, настраивает его задачи mise собственными командами клона, заполняет документацию (таблицы команд, заметки об окружении, глоссарий) и контекст OpenSpec, а там, где клон оставляет что-то неясным, задаёт вопросы с вариантами ответа. `/bootstrap <name>` подключает репозиторий, добавленный позже.
+3. Закоммитьте всё, включая файлы sdd-kit, в отдельной ветке и откройте pull request.
+
+## Что внутри
+
+| Путь | Содержимое | Подробности |
+| --- | --- | --- |
+| `AGENTS.md` | Правила для агентов и навигация по документации | агент читает его при старте |
+| `GLOSSARY.md` | Термины | |
+| `repos.toml` | Реестр репозиториев: единственный список клонов | [repos/README.md](repos/README.md) |
+| `mise.toml`, `mise-tasks/` | Инструменты, сгенерированный список клонов и задачи | [mise-tasks/README.md](mise-tasks/README.md) |
+| `mise.lock` | Точные версии инструментов, записывается первым `mise run setup` | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `scripts/` | Скрипт реестра, помощники для клонов, обёртка установщика sdd-kit | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `hk.pkl` | Git-хуки метарепозитория | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `sgconfig.yml`, `ast-grep/` | Общие правила для кода клонов | [ast-grep/README.md](ast-grep/README.md) |
+| `openspec/` | OpenSpec и sdd-kit, спецификации и изменения, после `mise run kit:install` | [docs/agents/repository-layout.md](docs/agents/repository-layout.md) |
+| `docs/agents/` | Подробные правила для агентов | [docs/agents/README.md](docs/agents/README.md) |
+| `docs/adr/` | Решения, которые касаются всех репозиториев | [docs/adr/README.md](docs/adr/README.md) |
+| `docs/clone-backlog.md` | Изменения клонов, отложенные на потом | |
+| `.claude/` | Настройки, хуки и скиллы агента | [docs/agents/agent-settings.md](docs/agents/agent-settings.md) |
+| `tests/` | Тесты самого метарепозитория | [docs/agents/tooling.md](docs/agents/tooling.md) |
+{%- if e2e %}
+| `e2e/` | End-to-end тесты через несколько клонов | [e2e/README.md](e2e/README.md) |
+{%- endif %}
+| `repos/` | Клоны приложений, в `.gitignore` | [repos/README.md](repos/README.md) |
+
+## Задачи
+
+| Команда | Что делает |
+| --- | --- |
+| `mise run setup` | Хуки, sdd-kit, `mise.lock`, репозитории, клоны, зависимости и хуки клонов |
+| `mise run add-repo` | Добавляет репозитории в `repos.toml`, пересобирает списки, предлагает склонировать |
+| `mise run repos:sync` | Пересобирает из `repos.toml` всё, где перечислены репозитории |
+| `mise run clone` | Клонирует недостающие клоны |
+| `mise run pull` | `git pull --rebase --autostash` в метарепозитории и в каждом клоне на его ветке |
+| `mise run status` | Ветка и число изменённых файлов в каждом клоне |
+| `mise run check` | Собственные проверки каждого клона, правила `ast-grep`, сверка реестра |
+| `mise run lint` | `rumdl`, `typos`, `agnix` и файлы агента в корне |
+| `mise run test` | Тесты метарепозитория |
+| `mise run kit:install`, `mise run kit:update` | Установить или обновить sdd-kit и зафиксировать его версию OpenSpec |
+| `mise run <name>:*` | Команды клона, перечислены в `AGENTS.md` |
+
+## Как поддерживать в актуальном состоянии
+
+| Что | Как |
+| --- | --- |
+| Улучшения этого шаблона | `uvx copier update --trust`, затем проверьте diff; ответы лежат в `.copier-answers.yml` |
+| sdd-kit | `mise run kit:update`, затем закоммитьте `openspec/`, `.claude/`, `.gitignore` и `mise.toml` |
+| Репозитории | `mise run add-repo` или правка `repos.toml` и `mise run repos:sync` |
+
+## Работа с агентом
+
+Запускайте агента из корня метарепозитория. Новую фичу начинайте с `/opsx:new`; sdd-kit проведёт её через вопросы, спецификации, дизайн, задачи и проверки. Артефакты OpenSpec пишутся на английском, а уточняющие вопросы — на русском. {% if agent_git_default == 'on' %}Агент коммитит и пушит в рабочих ветках, если вы не отключили это для себя{% else %}Агент не коммитит и не пушит, пока вы не включите это для себя{% endif %} ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{% else -%}
+# {{ project_name }}
+
+From here the team builds features across the {{ project_name }} repositories with one agent, one OpenSpec and one set of checks. The code stays in the application repositories, cloned into `repos/`; this repository holds the agent rules, specs, decisions and checks. It is generated from the [sdd-metarepo](https://github.com/cmdtorch/sdd-metarepo) Copier template, with [sdd-kit](https://github.com/cmdtorch/sdd_kit) on top of OpenSpec.
+
+## Quick start
+
+You need [mise](https://mise.jdx.dev) and git (mise installs Node and the other tools), and access to the repositories listed in `repos.toml` (usually an SSH key added to GitHub).
+
+```sh
+git clone git@github.com:{{ github_org }}/{{ project_slug }}.git
+cd {{ project_slug }}
+mise trust
+mise run setup
+```
+
+`setup` installs the root tools and the meta-repository's git hooks, installs sdd-kit when the project has none yet, writes `mise.lock` when it is missing, asks for the repositories when `repos.toml` is empty, clones each repository into `repos/<name>` on its rest branch, and installs their dependencies and git hooks with their own commands. A repeated run is safe: existing clones are left as they are.
+
+After `setup`, create each application's environment files as described in [docs/agents/environment.md](docs/agents/environment.md), then check everything with `mise run check`.
+
+## Right after generation
+
+1. Add the repositories with `mise run add-repo`; the first `setup` asks for them. Each gets an entry in `repos.toml`, task stubs `mise run <name>:test|check|run|install` and rows in the generated tables.
+2. Start Claude Code in the root and run `/bootstrap`, the AI onboarding. It reads each clone, configures its mise tasks with the clone's own commands, fills in the docs (command tables, environment notes, glossary) and the OpenSpec context, and asks questions with options where the clone leaves something open. `/bootstrap <name>` onboards a repository added later.
+3. Commit everything, including the sdd-kit files, on a branch and open a pull request.
+
+## What is inside
+
+| Path | Contents | Details |
+| --- | --- | --- |
+| `AGENTS.md` | Agent rules and navigation through the docs | read by the agent at start |
+| `GLOSSARY.md` | Terms | |
+| `repos.toml` | The repository registry: the only list of clones | [repos/README.md](repos/README.md) |
+| `mise.toml`, `mise-tasks/` | Tools, generated clone list and tasks | [mise-tasks/README.md](mise-tasks/README.md) |
+| `mise.lock` | Exact tool versions, written by the first `mise run setup` | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `scripts/` | Registry script, clone helpers, sdd-kit installer wrapper | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `hk.pkl` | Meta-repository git hooks | [docs/agents/tooling.md](docs/agents/tooling.md) |
+| `sgconfig.yml`, `ast-grep/` | Shared rules for clone code | [ast-grep/README.md](ast-grep/README.md) |
+| `openspec/` | OpenSpec and sdd-kit, specs and changes, after `mise run kit:install` | [docs/agents/repository-layout.md](docs/agents/repository-layout.md) |
+| `docs/agents/` | Detailed agent rules | [docs/agents/README.md](docs/agents/README.md) |
+| `docs/adr/` | Decisions that apply to all repositories | [docs/adr/README.md](docs/adr/README.md) |
+| `docs/clone-backlog.md` | Clone changes deferred for later | |
+| `.claude/` | Agent settings, hooks and skills | [docs/agents/agent-settings.md](docs/agents/agent-settings.md) |
+| `tests/` | Tests of the meta-repository itself | [docs/agents/tooling.md](docs/agents/tooling.md) |
+{%- if e2e %}
+| `e2e/` | End-to-end tests across the clones | [e2e/README.md](e2e/README.md) |
+{%- endif %}
+| `repos/` | Application clones, in `.gitignore` | [repos/README.md](repos/README.md) |
+
+## Tasks
+
+| Command | What it does |
+| --- | --- |
+| `mise run setup` | Hooks, sdd-kit, `mise.lock`, repositories, clones, clone dependencies and hooks |
+| `mise run add-repo` | Adds repositories to `repos.toml`, regenerates the lists, offers to clone |
+| `mise run repos:sync` | Regenerates everything that lists the repositories from `repos.toml` |
+| `mise run clone` | Clones the missing clones |
+| `mise run pull` | `git pull --rebase --autostash` in the meta-repository and each clone on its branch |
+| `mise run status` | Branch and number of changed files in each clone |
+| `mise run check` | Each clone's own checks, `ast-grep` rules, registry comparison |
+| `mise run lint` | `rumdl`, `typos`, `agnix` and the agent files in the root |
+| `mise run test` | Meta-repository tests |
+| `mise run kit:install`, `mise run kit:update` | Install or update sdd-kit and pin its OpenSpec version |
+| `mise run <name>:*` | A clone's commands, listed in `AGENTS.md` |
+
+## Keeping up to date
+
+| What | How |
+| --- | --- |
+| This template's improvements | `uvx copier update --trust`, then review the diff; the answers live in `.copier-answers.yml` |
+| sdd-kit | `mise run kit:update`, then commit `openspec/`, `.claude/`, `.gitignore` and `mise.toml` |
+| Repositories | `mise run add-repo`, or edit `repos.toml` and run `mise run repos:sync` |
+
+## Working with the agent
+
+Start the agent from the meta-repository root. Begin a new feature with `/opsx:new`; sdd-kit takes it through questions, specs, design, tasks and checks. {% if agent_git_default == 'on' %}The agent commits and pushes on work branches unless you turn it off for yourself{% else %}The agent does not commit or push until you enable it for yourself{% endif %} ([docs/agents/agent-settings.md](docs/agents/agent-settings.md)).
+{% endif -%}

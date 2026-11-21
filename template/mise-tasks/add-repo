@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Add repositories to repos.toml, regenerate the files that list them and offer to clone them"
+#MISE raw=true
+set -euo pipefail
+exec node "$MISE_CONFIG_ROOT/scripts/repos.mjs" add "$@"

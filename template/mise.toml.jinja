@@ -1,0 +1,33 @@
+# Tools, clones and tasks of the {{ project_name }} meta-repository. A machine is set up
+# with one command; mise installs missing tools itself before a task:
+#
+#   mise run setup
+#
+# Versions here are latest or major; exact versions and checksums live in mise.lock,
+# written by the first `mise run setup` and updated with `mise lock --bump`.
+# `mise run kit:install` and `mise run kit:update` add the exact OpenSpec version that
+# sdd-kit needs. After changing a version run `mise run test` and `mise run check`.
+
+# Versions older than this do not support [bootstrap.repos] with ref.
+min_version = "2026.9.6"
+
+[tools]
+# Node 24: the agent hook, the registry script and sdd-kit run on it.
+node = "24"
+"aqua:ast-grep/ast-grep" = "latest"
+hk = "latest"
+pkl = "latest"
+
+# Checks of texts and agent settings (mise run lint).
+rumdl = "latest"
+typos = "latest"
+"github:agent-sh/agnix" = "latest"
+
+# Tasks are files in mise-tasks/ (see mise-tasks/README.md).
+
+# Application clones, on their rest branch. Generated from repos.toml by
+# `mise run repos:sync`; do not edit by hand, and keep this table last in the file.
+# mise leaves an existing clone alone: neither its branch nor its changes.
+# repos:begin
+[bootstrap.repos]
+# repos:end

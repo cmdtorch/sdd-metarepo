@@ -1,0 +1,18 @@
+{% if language == 'ru' -%}
+
+# rules
+
+Правила ast-grep, по одному файлу на правило. ast-grep читает только `*.yml`, поэтому этот README ему не мешает.
+
+Имя файла совпадает с полем `id` внутри. Комментарий в начале файла отвечает, зачем правило существует. Поле `ignores` исключает места, где нарушение допустимо (тесты, миграции). Серьёзность `error` роняет `mise run check`; `warning` только печатает предупреждение.
+
+Новое правило добавляется скиллом `add-ast-grep-rule` вместе с тестом в `../rule-tests/`.
+{% else -%}
+# rules
+
+ast-grep rules, one file per rule. ast-grep reads only `*.yml`, so this README does not get in its way.
+
+The file name matches the `id` field inside. A comment at the top of the file answers why the rule exists. The `ignores` field excludes places where a violation is acceptable (tests, migrations). Severity `error` fails `mise run check`; `warning` only prints.
+
+A new rule is added with the `add-ast-grep-rule` skill, together with a test in `../rule-tests/`.
+{% endif -%}

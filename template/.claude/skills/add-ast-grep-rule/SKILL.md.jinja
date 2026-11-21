@@ -1,0 +1,31 @@
+---
+name: add-ast-grep-rule
+description: Add a shared code check for the clones in repos/ as an ast-grep rule with a test. Use when a convention applies to one or more clones and must be checked by code rather than written into AGENTS.md.
+---
+
+{% if language == 'ru' -%}
+
+# Добавить правило ast-grep
+
+Правило и его тест создаются вместе; правило без теста не коммитится.
+
+1. Проверьте, что правило не дублирует собственный линтер клона (то, что запускает `mise run <name>:check`). Если линтер клона может это проверить, запишите изменение в `docs/clone-backlog.md` вместо ast-grep.
+2. Точно определите, что запрещено, и найдите пример нарушения в клонах командой `ast-grep run --pattern '<pattern>' --lang <language> repos/<name>`. Если нарушений нет, правило проверяется только своим тестом.
+3. Создайте `ast-grep/rules/<id>.yml`. Поля: `id` (совпадает с именем файла), `language`, `severity` (по умолчанию `error`), `message` (что не так и что делать), `rule.pattern`. Исключения, где нарушение допустимо, вынесите в `ignores`. Комментарий в начале файла отвечает, зачем правило существует. Для второго языка нужен второй файл.
+4. Создайте `ast-grep/rule-tests/<id>-test.yml` с полем `id` и списками `valid` и `invalid`, минимум по два примера в каждом.
+5. Запустите `ast-grep test --skip-snapshot-tests`, затем `mise run check`. Если check падает на клонах, нарушения исправляются в клонах, в отдельных ветках по модели веток каждого клона (`docs/agents/branches.md`), а не ослаблением правила. Пока они не исправлены, запишите их в `docs/clone-backlog.md`.
+6. Если правило меняет решение для всех репозиториев, напишите ADR в `docs/adr/`.
+7. Правило коммитится по правилам веток метарепозитория: рабочая ветка от `main`, pull request в `main` (`docs/agents/branches.md`).
+{% else -%}
+# Add an ast-grep rule
+
+The rule and its test are created together; a rule without a test is not committed.
+
+1. Check that the rule does not duplicate the clone's own linter (what `mise run <name>:check` runs). If the clone's linter can check it, record the change in `docs/clone-backlog.md` instead of ast-grep.
+2. Define exactly what is forbidden and find an example violation in the clones with `ast-grep run --pattern '<pattern>' --lang <language> repos/<name>`. If there are no violations, the rule is checked by its test only.
+3. Create `ast-grep/rules/<id>.yml`. Fields: `id` (matches the file name), `language`, `severity` (`error` by default), `message` (what is wrong and what to do), `rule.pattern`. Put exceptions where a violation is acceptable into `ignores`. A comment at the top of the file answers why the rule exists. A second language needs a second file.
+4. Create `ast-grep/rule-tests/<id>-test.yml` with an `id` field and `valid` and `invalid` lists, at least two examples in each.
+5. Run `ast-grep test --skip-snapshot-tests`, then `mise run check`. If check fails on the clones, the violations are fixed in the clones on separate branches that follow each clone's branch model (`docs/agents/branches.md`), not by weakening the rule. Until they are fixed, record them in `docs/clone-backlog.md`.
+6. If the rule changes a decision for all repositories, write an ADR in `docs/adr/`.
+7. The rule is committed following the meta-repository branch rules: a working branch from `main`, a pull request to `main` (`docs/agents/branches.md`).
+{% endif -%}

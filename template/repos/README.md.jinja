@@ -1,0 +1,58 @@
+{% if language == 'ru' -%}
+
+# repos
+
+`mise run clone` клонирует сюда репозитории {{ project_name }}. Папка в `.gitignore`; отслеживается только этот файл.
+
+У каждого клона свой `.git`, свои ветки, git-хуки и правила для агентов. Изменения клона коммитятся в его собственный репозиторий, по модели веток этого клона ([docs/agents/branches.md](../docs/agents/branches.md)).
+
+## Какие репозитории клонируются
+
+Список — это `repos.toml` в корне. `mise run add-repo` добавляет репозиторий; `mise run repos:sync` генерирует из него `[bootstrap.repos]` в `mise.toml`, который читает `mise run clone`, список sdd-kit `openspec/clones` и таблицу ниже.
+
+<!-- repos:begin -->
+
+Репозиториев пока нет. Добавьте первый командой `mise run add-repo`.
+
+<!-- repos:end -->
+
+## Как это работает
+
+`mise run clone` читает `[bootstrap.repos]` и выполняет `git clone` для каждого недостающего клона, на его ветке покоя. Существующие клоны остаются как есть, на своей ветке и со своими изменениями. `mise run pull` выполняет `git pull --rebase --autostash` в каждом клоне на его текущей ветке и в конце перечисляет клоны, которые не удалось обновить.
+
+Приватные репозитории обычно клонируются по SSH, поэтому нужен SSH-ключ с доступом к каждому репозиторию из списка.
+
+Папки клона не должно быть до первого клонирования, потому что `git clone` не пишет в непустую папку. Поэтому здесь лежит только этот README.
+
+## Чего здесь делать нельзя
+
+Не создавайте файлы в `repos/` вручную; всё содержимое появляется при клонировании. Не клонируйте репозитории в обход `repos.toml`, иначе они выпадут из задач и проверок.
+{% else -%}
+# repos
+
+`mise run clone` clones the {{ project_name }} repositories here. The folder is in `.gitignore`; only this file is tracked.
+
+Each clone has its own `.git`, branches, git hooks and agent rules. Clone changes are committed to their own repositories, following each clone's branch model ([docs/agents/branches.md](../docs/agents/branches.md)).
+
+## Which repositories are cloned
+
+`repos.toml` in the root is the list. `mise run add-repo` adds a repository; `mise run repos:sync` regenerates from it `[bootstrap.repos]` in `mise.toml`, which `mise run clone` reads, the sdd-kit list `openspec/clones` and the table below.
+
+<!-- repos:begin -->
+
+No repositories yet. Add one with `mise run add-repo`.
+
+<!-- repos:end -->
+
+## How it works
+
+`mise run clone` reads `[bootstrap.repos]` and runs `git clone` for each missing clone, on its rest branch. Existing clones are left as they are, on their branch and with their changes. `mise run pull` runs `git pull --rebase --autostash` in each clone on its current branch and at the end lists the clones that could not be updated.
+
+Private repositories are usually cloned over SSH, so you need an SSH key with access to each repository in the list.
+
+A clone folder must not exist before the first clone, because `git clone` does not write into a non-empty folder. That is why only this README is here.
+
+## What is not allowed here
+
+Do not create files in `repos/` by hand; all content comes from cloning. Do not clone repositories bypassing `repos.toml`, otherwise they are left out of the tasks and checks.
+{% endif -%}

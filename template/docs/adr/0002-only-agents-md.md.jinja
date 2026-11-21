@@ -1,0 +1,44 @@
+---
+status: accepted
+---
+
+{% if language == 'ru' -%}
+
+# Правила для агентов живут только в AGENTS.md
+
+В корне метарепозитория нет `CLAUDE.md`, `.claude/CLAUDE.md` и `CLAUDE.local.md`. Правила пишутся в `AGENTS.md`, который читают Claude Code и Codex. Claude Code читает `AGENTS.md` нативно начиная с версии 2.1.277 ([документация](https://code.claude.com/docs/en/memory#agents-md)).
+
+## Рассмотренные варианты
+
+**`CLAUDE.md`, импортирующий `@AGENTS.md`.** Работает на любой версии, но добавляет второй файл, о котором можно забыть при обновлении.
+
+**Символическая ссылка `CLAUDE.md` на `AGENTS.md`.** С символическими ссылками неудобно в Windows, а некоторые инструменты отказываются писать через ссылку.
+
+**Только `AGENTS.md` (выбрано).** Один файл, одно место для правок.
+
+## Последствия
+
+- Нужен Claude Code 2.1.277 или новее.
+- Любой `CLAUDE.md`, `.claude/CLAUDE.md` или `CLAUDE.local.md` в корне или выше отключает чтение `AGENTS.md`. `mise run lint` ловит такие файлы в корне.
+- `CLAUDE.md` клона лежит ниже корня и чтение не отключает. Агент читает его перед правкой этого клона, как требует `AGENTS.md`.
+- Загрузку проверяют командой `/context` в начале сессии.
+{% else -%}
+# Agent rules live only in AGENTS.md
+
+The meta-repository root has no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`. Rules are written in `AGENTS.md`, which Claude Code and Codex read. Claude Code reads `AGENTS.md` natively since version 2.1.277 ([documentation](https://code.claude.com/docs/en/memory#agents-md)).
+
+## Considered Options
+
+**`CLAUDE.md` importing `@AGENTS.md`.** Works on any version, but adds a second file that can be forgotten when updating.
+
+**A `CLAUDE.md` symlink to `AGENTS.md`.** Symlinks are awkward on Windows, and some tools refuse to write through a link.
+
+**Only `AGENTS.md` (chosen).** One file, one place to edit.
+
+## Consequences
+
+- Claude Code 2.1.277 or newer is required.
+- Any `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the root or above turns off reading `AGENTS.md`. `mise run lint` catches such files in the root.
+- A clone's `CLAUDE.md` lives below the root and does not turn reading off. The agent reads it before editing that clone, as `AGENTS.md` requires.
+- Loading is checked with the `/context` command at the start of a session.
+{% endif -%}

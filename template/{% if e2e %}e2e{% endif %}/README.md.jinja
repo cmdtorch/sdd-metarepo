@@ -1,0 +1,46 @@
+{% if language == 'ru' -%}
+
+# End-to-end тесты
+
+Браузерные тесты, которые охватывают несколько клонов сразу, например API и интерфейс, который его использует. Собственные браузерные тесты клона остаются в клоне.
+
+Настройки в папке пока нет. Первое изменение OpenSpec, которому нужен end-to-end тест, создаёт её здесь, в корне, и описывает в этом файле:
+
+| Что | Где это записано |
+| --- | --- |
+| Запускалка тестов и её конфигурация | `package.json`, файл конфигурации запускалки |
+| Как запустить все приложения, которые нужны тестам, на одноразовой базе данных | команда запуска, в идеале задача `mise run e2e:serve` |
+| Как тест создаёт свои данные | команда наполнения данными или помощник для каждого клона |
+| Как тест входит в систему | помощник |
+| Как запускать тесты | команды, из корня |
+
+Правила для настройки:
+
+- Тесты никогда не трогают собственную базу данных разработчика: команда запуска создаёт и сбрасывает свою.
+- Каждый тест создаёт нужные ему данные и находит свои строки по полученным идентификаторам.
+- Зависимости устанавливаются по lock-файлу (`npm ci`), а браузеры — явной командой.
+
+Этап E2E в sdd-kit запускает и записывает тесты Playwright для веб-приложений (`openspec/protocols/e2e.md`, после `mise run kit:install`).
+{% else -%}
+# End-to-end tests
+
+Browser tests that cover several clones together, for example an API and the interface that uses it. A clone's own browser tests stay in its clone.
+
+The folder has no setup yet. The first OpenSpec change that needs an end-to-end test creates it here, in the root, and documents it in this file:
+
+| What | Where it is written down |
+| --- | --- |
+| Test runner and its config | `package.json`, the runner's config file |
+| How to start every application the tests need, against a throwaway database | a start command, ideally a task `mise run e2e:serve` |
+| How a test creates its data | a seed command or helper per clone |
+| How a test signs in | a helper |
+| How to run the tests | the commands, from the root |
+
+Rules for the setup:
+
+- The tests never touch a developer's own database: the start command creates and resets its own.
+- Each test creates the data it needs and finds its own rows by the ids it got back.
+- Dependencies are installed with a lock file (`npm ci`), and browsers are installed by an explicit command.
+
+sdd-kit's E2E stage runs and records Playwright tests for web applications (`openspec/protocols/e2e.md`, after `mise run kit:install`).
+{% endif -%}

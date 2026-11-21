@@ -1,0 +1,52 @@
+{% if language == 'ru' -%}
+
+# ast-grep
+
+Общие правила для кода клонов, которые проверяет код. Соглашение, которое касается нескольких клонов, записывается правилом, а не абзацем в `AGENTS.md`: агент может пропустить абзац, а проверку пропустить нельзя.
+
+Конфигурация — `../sgconfig.yml`. Запускайте из корня метарепозитория.
+
+| Папка | Содержимое |
+| --- | --- |
+| [rules/](rules/README.md) | Правила, по одному файлу на правило |
+| [rule-tests/](rule-tests/README.md) | Тесты правил, по одному файлу на правило |
+
+## Команды
+
+```sh
+ast-grep test --skip-snapshot-tests                 # тесты правил
+ast-grep scan --no-ignore parent repos/<name>       # один клон
+mise run check                                      # всё вместе
+```
+
+Флаг `--no-ignore parent` нужен, потому что `repos/*` в `.gitignore` метарепозитория, и без флага ast-grep полностью пропускает клоны. Собственный `.gitignore` клона, например `node_modules`, по-прежнему действует.
+
+## Текущие правила
+
+Правил пока нет; шаг `code-rules` в `mise run check` сообщает `no rules` и проходит. Собственные линтеры клонов запускаются в их шагах `<name>:check`, и их правила здесь не дублируются. Новое правило добавляется скиллом `add-ast-grep-rule`.
+{% else -%}
+# ast-grep
+
+Shared rules for clone code that code checks. A convention that applies to several clones is written as a rule, not a paragraph in `AGENTS.md`: the agent can skip a paragraph, a check cannot be skipped.
+
+The config is `../sgconfig.yml`. Run from the meta-repository root.
+
+| Folder | Contents |
+| --- | --- |
+| [rules/](rules/README.md) | Rules, one file per rule |
+| [rule-tests/](rule-tests/README.md) | Rule tests, one file per rule |
+
+## Commands
+
+```sh
+ast-grep test --skip-snapshot-tests                 # rule tests
+ast-grep scan --no-ignore parent repos/<name>       # one clone
+mise run check                                      # everything together
+```
+
+The `--no-ignore parent` flag is needed because `repos/*` is in the meta-repository's `.gitignore`, and without the flag ast-grep skips the clones entirely. The clone's own `.gitignore`, for example `node_modules`, still applies.
+
+## Current rules
+
+There are no rules yet; the `code-rules` step of `mise run check` reports `no rules` and passes. The clones' own linters run in their `<name>:check` steps, and their rules are not duplicated here. A new rule is added with the `add-ast-grep-rule` skill.
+{% endif -%}

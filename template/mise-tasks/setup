@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#MISE description="Set up the machine: hooks, sdd-kit, tool lock file, repositories, clones, clone dependencies and hooks"
+#MISE raw=true
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+
+# The root tools are already installed: mise run installs what is missing from
+# mise.toml before the task. The --mise flag writes `mise x -- hk` into the hook,
+# so the hook takes versions from mise.toml regardless of the git client's PATH.
+hk install --mise
+
+# sdd-kit files are committed, so on a teammate's machine they are already here and
+# only the first setup of the project installs the kit. SDD_KIT_SKIP=1 skips it
+# (offline, tests).
+if [ -n "${SDD_KIT_SKIP:-}" ]; then
+	echo "SDD_KIT_SKIP is set: sdd-kit is not installed. Install it later with: mise run kit:install"
+elif [ ! -f openspec/tooling/kit.json ]; then
+	mise run kit:install
+fi
+
+# mise.lock pins the exact tool versions and checksums for the whole team; it is
+# committed. The first setup writes it; later `mise lock --bump` updates it.
+# MISE_LOCK_SKIP=1 skips it (offline, tests).
+if [ ! -f mise.lock ] && [ -z "${MISE_LOCK_SKIP:-}" ]; then
+	mise lock || echo "mise.lock was not written; write it later with: mise lock" >&2
+fi
+
+# The registry starts empty: ask for the repositories in a terminal.
+if [ -z "$(repo_names)" ]; then
+	if [ -t 0 ]; then
+		node scripts/repos.mjs add --no-clone
+	else
+		echo "No repositories in repos.toml yet. Add them with: mise run add-repo"
+	fi
+fi
+
+mise run clone
+
+# The clones' own commands install their dependencies and git hooks, so clone
+# hooks run the same way as when working with the repository directly. setup
+# neither creates nor changes the clones' environment files
+# (docs/agents/environment.md). A task still generated as a stub is skipped
+# until /bootstrap or a developer writes the clone's own command.
+failed=()
+for name in $(repo_names); do
+	for config in mise.toml .mise.toml; do
+		[ -f "repos/$name/$config" ] && mise trust --quiet "repos/$name/$config"
+	done
+	if is_stub "mise-tasks/$name/install"; then
+		echo "$name:install: not configured yet, dependencies not installed. Run /bootstrap in Claude Code or edit mise-tasks/$name/install."
+		continue
+	fi
+	mise run "$name:install" || failed+=("$name:install")
+done
+
+# A clone task still generated as a stub, or no repository at all: point to the AI onboarding.
+unconfigured=0
+[ -n "$(repo_names)" ] || unconfigured=1
+for name in $(repo_names); do
+	for task in mise-tasks/"$name"/*; do
+		if [ -f "$task" ] && is_stub "$task"; then unconfigured=1; fi
+	done
+done
+if [ "$unconfigured" -eq 1 ]; then
+	echo
+	case "$(sed -nE 's/^language:[[:space:]]*["'\'']?([a-z]+).*/\1/p' .copier-answers.yml 2>/dev/null)" in
+	ru) echo "Дальше: запустите Claude Code в этой папке и выполните /bootstrap" ;;
+	*) echo "Next: start Claude Code in this folder and run /bootstrap" ;;
+	esac
+fi
+
+if [ "${#failed[@]}" -gt 0 ]; then
+	echo >&2
+	echo "Failed:" >&2
+	printf '  %s\n' "${failed[@]}" >&2
+	exit 1
+fi

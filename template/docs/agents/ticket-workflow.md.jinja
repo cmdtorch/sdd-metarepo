@@ -1,0 +1,186 @@
+{% if language == 'ru' -%}
+
+{% if tracker != 'none' -%}
+# Тикеты, вопросы и pull request
+
+Прочитайте это перед работой над тикетом {{ tracker_name }}, перед вопросом по тикету или перед открытием pull request, в метарепозитории или в клоне. Сам порядок работы с ветками описан в [branches.md](branches.md).
+
+## {{ tracker_name }} только для чтения
+
+Агент может читать тикеты {{ tracker_name }}, их комментарии, статус и прикреплённые файлы.
+
+Агент ничего не меняет в {{ tracker_name }}: не создаёт и не редактирует тикеты, не комментирует, не меняет статус, не загружает файлы и не списывает время. Агент не меняет статус тикета и после открытия pull request; тикет двигает разработчик. Трекер принадлежит команде и её клиентам, и запись агента там нельзя тихо отменить. Это правило только записано; ни один хук его не проверяет.
+
+Когда {{ tracker_name }} недоступен или прикреплённый файл не читается, агент называет тикет или вложение, которое не смог прочитать, и просит разработчика вставить его текст или экспортировать в читаемый формат. Содержимое он не угадывает.
+
+## Вложения
+
+Файл, который агент скачивает из тикета, кладётся в `openspec/changes/<change>/sources/`, если у тикета есть изменение OpenSpec, чтобы изменение хранило свои источники. Если изменения OpenSpec у тикета нет, файл кладётся во временную папку вне всех репозиториев: не в метарепозиторий и не в клон, чтобы он никогда не попал в коммит.
+
+## Вопросы по тикету
+
+Агент не публикует вопросы в {{ tracker_name }}. Он выдаёт их в чате, а разработчик публикует их комментарием к тикету.
+
+- Вопросы пишутся на языке тикета.
+- Это нумерованный список, один короткий вопрос на строку.
+- До и после списка ничего нет: ни приветствия, ни вступления, ни заключения.
+
+Разработчик копирует список как есть, поэтому всё лишнее в нём — дополнительная работа.
+
+### В изменении OpenSpec
+
+- Структурированные уточняющие вопросы сохраняют свой формат.
+- Для вопроса, на который может ответить только автор тикета, агент дополнительно даёт короткую версию, готовую для вставки.
+- Когда разработчик приносит ответ в чат, агент записывает его как ответ в `clarifications.md` изменения.
+
+{% else -%}
+# Задачи и pull request
+
+Прочитайте это перед началом задачи или открытием pull request, в метарепозитории или в клоне. Сам порядок работы с ветками описан в [branches.md](branches.md).
+
+## Вопросы по задаче
+
+Неясные места задачи уходят разработчику в чат нумерованным списком, один короткий вопрос на строку, без текста до и после списка, чтобы разработчик мог переслать список как есть. В изменении OpenSpec структурированные уточняющие вопросы сохраняют свой формат.
+
+{% endif -%}
+## Перед каждой задачей
+
+Перед каждым новым тикетом или задачей и перед созданием её ветки агент выполняет `mise run pull`, а затем `mise run status`. `mise run pull` обновляет метарепозиторий и каждый клон, поэтому работа начинается с самого свежего кода и правил.
+
+- Когда `mise run pull` перечисляет репозиторий под «Not updated, resolve manually», агент называет этот репозиторий и причину (нет клона, pull не удался, конфликт, оставшийся stash) и не начинает задачу, пока разработчик это не решит.
+- Репозиторий под «No upstream, not updated» задачу не останавливает. Обычно это незапушенная рабочая ветка. Агент выполняет `git -C <repository> fetch origin` и создаёт новую рабочую ветку от только что полученной `origin/main` или `origin/dev`, как требует модель веток репозитория ([branches.md](branches.md)).
+
+## Pull request
+
+### Когда агент его открывает
+
+Для работы с изменением OpenSpec{% if tracker != 'none' %} и тикетом{% endif %} агент открывает pull request, не спрашивая, как только выполнены все три условия:
+
+1. Все задачи изменения выполнены.
+2. Тесты и проверки качества репозитория проходят.
+3. Каждый пункт {% if tracker != 'none' %}тикета и ответов на его вопросы{% else %}изменения и ответов на его вопросы{% endif %} покрыт.
+
+Цель — ветка покоя в клоне и `main` в метарепозитории. Разработчик проверяет pull request и сливает его вручную; агент никогда не сливает ([branches.md](branches.md)).
+
+Для работы без изменения OpenSpec{% if tracker != 'none' %} или без тикета{% endif %} агент открывает pull request, только когда об этом просит разработчик.
+
+Автоматический pull request действует, только когда коммит и пуш агента разрешены оба (`METAREPO_AGENT_COMMIT` и `METAREPO_AGENT_PUSH`, [agent-settings.md](agent-settings.md)). Иначе агент не открывает pull request: он сообщает, что работа готова, и называет ветку, что осталось сделать (коммит, пуш, pull request), и готовые заголовок и описание pull request.
+
+Когда pull request из той же ветки в ту же цель уже открыт, агент не открывает второй и даёт ссылку на открытый. Новые коммиты, запушенные в ветку, обновляют его.
+
+### Заголовок и описание
+
+Каждый pull request, который открывает агент, имеет одинаковую форму во всех репозиториях.
+{%- if tracker == 'github' %}
+
+- Заголовок: заголовок по Conventional Commits, например `fix: исправить итог счёта`.
+- Описание: что изменилось, как это проверено, и `Closes #123` для issue, которую он закрывает (`Closes owner/repo#123` для issue в другом репозитории).
+- Работа без issue: такой же заголовок, без строки `Closes`.
+{%- elif tracker != 'none' %}
+
+- Заголовок: `{{ 'ENG' if tracker == 'linear' else 'PROJ' }}-123: краткое описание`, то есть `<ключ тикета>: <краткое описание>`.
+- Описание: что изменилось, как это проверено, и ссылка на тикет.
+- Работа без тикета: заголовок по Conventional Commits, например `docs: обновить правила для агентов`, без ключа тикета и без ссылки на тикет.
+{%- else %}
+
+- Заголовок: заголовок по Conventional Commits, например `docs: обновить правила для агентов`.
+- Описание: что изменилось и как это проверено.
+{%- endif %}
+- Тексты pull request и коммитов пишутся на русском и не содержат упоминания Claude ([branches.md](branches.md)).
+
+### Клон main-based: pull request в main
+
+Агент открывает pull request рабочей ветки main-based в `main`, только когда разработчик скажет, что изменение одобрено QA. Он идёт из рабочей ветки, никогда из `dev` или ветки слияния. Агент сам не следит за QA.
+{% else -%}
+{% if tracker != 'none' -%}
+# Tickets, questions and pull requests
+
+Read this before working on a {{ tracker_name }} ticket, asking a question about a ticket or opening a pull request, in the meta-repository or in a clone. The branch flow itself is in [branches.md](branches.md).
+
+## {{ tracker_name }} is read-only
+
+The agent may read {{ tracker_name }} tickets, their comments, their status and their attached files.
+
+The agent changes nothing in {{ tracker_name }}: it does not create or edit tickets, comment, change a status, upload files or log work. The agent does not change a ticket's status after opening a pull request either; the developer moves the ticket. The tracker belongs to the team and its clients, and an agent's write there cannot be taken back quietly. This rule is written only; no hook checks it.
+
+When {{ tracker_name }} cannot be reached or an attached file cannot be read, the agent names the ticket or attachment it could not read and asks the developer to paste its text or export it to a readable format. It does not guess the content.
+
+## Attachments
+
+A file the agent downloads from a ticket goes to `openspec/changes/<change>/sources/` when the ticket has an OpenSpec change, so the change keeps its sources. When the ticket has no OpenSpec change, the file goes to a temporary folder outside every repository: not in the meta-repository and not in a clone, so it never ends up in a commit.
+
+## Questions about a ticket
+
+The agent does not post questions to {{ tracker_name }}. It gives them in the chat, and the developer posts them as a ticket comment.
+
+- The questions use the ticket's language.
+- They are a numbered list, one short question per line.
+- Nothing comes before or after the list: no greeting, no introduction, no closing.
+
+The developer copies the list as it is, so anything else in it is extra work.
+
+### In an OpenSpec change
+
+- The structured clarifying questions keep their own format.
+- For a question only the ticket's author can answer, the agent also gives the short paste-ready version.
+- When the developer brings the reply to the chat, the agent records it as the answer in the change's `clarifications.md`.
+
+{% else -%}
+# Tasks and pull requests
+
+Read this before starting a task or opening a pull request, in the meta-repository or in a clone. The branch flow itself is in [branches.md](branches.md).
+
+## Questions about a task
+
+Unclear points of a task go to the developer in the chat as a numbered list, one short question per line, with nothing before or after it, so the developer can forward the list as it is. In an OpenSpec change the structured clarifying questions keep their own format.
+
+{% endif -%}
+## Before each task
+
+Before each new ticket or task, and before creating its branch, the agent runs `mise run pull` and then `mise run status`. `mise run pull` updates the meta-repository and every clone, so the work starts from the latest code and rules.
+
+- When `mise run pull` lists a repository under "Not updated, resolve manually", the agent names that repository and the reason (missing clone, failed pull, conflict, leftover stash) and does not start the task until the developer resolves it.
+- A repository listed under "No upstream, not updated" does not stop the task. It is usually an unpushed work branch. The agent runs `git -C <repository> fetch origin` and creates the new work branch from the freshly fetched `origin/main` or `origin/dev`, as the repository's branch model requires ([branches.md](branches.md)).
+
+## Pull requests
+
+### When the agent opens one
+
+For work with an OpenSpec change{% if tracker != 'none' %} and a ticket{% endif %}, the agent opens the pull request without asking once all three conditions hold:
+
+1. Every task of the change is done.
+2. The repository's tests and quality checks pass.
+3. Every point of the {% if tracker != 'none' %}ticket and of the answers to its questions{% else %}change and of the answers to its questions{% endif %} is covered.
+
+The target is the rest branch in a clone and `main` in the meta-repository. The developer reviews the pull request and merges it by hand; the agent never merges ([branches.md](branches.md)).
+
+For work without an OpenSpec change{% if tracker != 'none' %} or without a ticket{% endif %}, the agent opens a pull request only when the developer asks for it.
+
+The automatic pull request applies only when agent commit and push are both allowed (`METAREPO_AGENT_COMMIT` and `METAREPO_AGENT_PUSH`, [agent-settings.md](agent-settings.md)). Otherwise the agent does not open the pull request: it says the work is ready and reports the branch, what is left to do (commit, push, pull request) and a ready pull request title and description.
+
+When a pull request from the same branch into the same target is already open, the agent does not open a second one and gives the link to the open one. New commits pushed to the branch update it.
+
+### Title and description
+
+Every pull request the agent opens has the same form in every repository.
+{%- if tracker == 'github' %}
+
+- Title: a Conventional Commits title such as `fix: correct the invoice total`.
+- Description: what changed, how it was tested, and `Closes #123` for the issue it resolves (`Closes owner/repo#123` for an issue in another repository).
+- Work without an issue: the same title, with no `Closes` line.
+{%- elif tracker != 'none' %}
+
+- Title: `{{ 'ENG' if tracker == 'linear' else 'PROJ' }}-123: short summary`, that is `<ticket key>: <short summary>`.
+- Description: what changed, how it was tested, and the link to the ticket.
+- Work without a ticket: a Conventional Commits title such as `docs: update agent rules`, with no ticket key and no ticket link.
+{%- else %}
+
+- Title: a Conventional Commits title such as `docs: update agent rules`.
+- Description: what changed and how it was tested.
+{%- endif %}
+- Pull request and commit texts are in {{ language_name }} and carry no Claude attribution ([branches.md](branches.md)).
+
+### Main-based clone: pull request into main
+
+The agent opens the pull request of a main-based work branch into `main` only after the developer says the change is approved by QA. It comes from the work branch, never from `dev` or a merge branch. The agent does not watch QA on its own.
+{% endif -%}

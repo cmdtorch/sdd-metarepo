@@ -1,0 +1,40 @@
+amends "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Config.pkl"
+
+// These hooks run only in the meta-repository's git; the clones in repos/ have
+// their own git and hooks (docs/agents/tooling.md). So this checks what is
+// committed here: tasks, the mise config, scripts and rules. `mise run check` checks the clones.
+local commitSteps = new Mapping<String, Step> {
+    ["ast-grep-rules"] {
+        glob = List("ast-grep/**", "sgconfig.yml")
+        check = "ast-grep test --skip-snapshot-tests"
+    }
+    ["mise-tasks"] {
+        glob = List("mise-tasks/**")
+        exclude = List("mise-tasks/README.md")
+        check = "for f in {{files}}; do bash -n \"$f\" || { echo \"$f: syntax error\"; exit 1; }; done"
+    }
+    ["mise-validate"] {
+        glob = List("mise.toml", "mise-tasks/**")
+        exclude = List("mise-tasks/README.md")
+        check = "mise tasks validate --errors-only"
+    }
+    ["mise-fmt"] {
+        glob = List("mise.toml")
+        check = "mise fmt --check"
+        fix = "mise fmt"
+    }
+}
+
+hooks {
+    ["pre-commit"] {
+        steps = commitSteps
+    }
+    // Slow tier: full checks of texts and agent settings
+    ["pre-push"] {
+        steps {
+            ["lint"] {
+                check = "mise run lint"
+            }
+        }
+    }
+}

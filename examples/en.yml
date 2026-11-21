@@ -1,0 +1,11 @@
+# Answers for an English project; tests/render.sh renders it.
+project_name: Acme Platform
+project_slug: acme-platform
+github_org: acme
+language: en
+tracker: jira
+agent_git_default: "off"
+e2e: true
+feature_prefix: feature/
+bugfix_prefix: bugfix/
+run_setup: false

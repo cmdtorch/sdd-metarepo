@@ -1,0 +1,90 @@
+{% if language == 'ru' -%}
+
+# mise-tasks
+
+Каждая задача — отдельный исполняемый файл. Имя файла — это имя задачи: `mise run clone` запускает `mise-tasks/clone`, а `mise run api:test` запускает `mise-tasks/api/test`.
+
+## Задачи
+
+| Файл | Что делает |
+| --- | --- |
+| `setup` | `hk install --mise`, `kit:install`, если sdd-kit нет, `mise lock`, если нет `mise.lock`, `add-repo`, если `repos.toml` пуст, `clone`, затем `install` каждого клона |
+| `add-repo` | `node scripts/repos.mjs add`: спрашивает репозитории, дописывает их в `repos.toml`, запускает `repos:sync`, предлагает склонировать |
+| `repos/sync`, `repos/check` | Пересобирают или проверяют всё, где перечислены репозитории ([../docs/agents/tooling.md](../docs/agents/tooling.md)) |
+| `clone` | Клонирует недостающие клоны из `[bootstrap.repos]` на их ветке покоя, существующие клоны не трогает |
+| `pull` | `git pull --rebase --autostash` в метарепозитории и в каждом клоне на его ветке, перечисляет сбои и ветки без upstream |
+| `status` | Ветка и число изменённых файлов в каждом клоне, отсутствующий клон помечается `missing` |
+| `check` | Шаг на каждый клон (`<name>:check`), `code-rules`, `repos` и таблица результатов |
+| `lint` | `rumdl`, `typos`, `agnix` и `scripts/check-agent-files.sh` |
+| `test` | Тесты метарепозитория из `tests/` |
+| `kit/install`, `kit/update` | Устанавливают или обновляют sdd-kit через `scripts/kit.sh` |
+| `<name>/test`, `<name>/check`, `<name>/run`, `<name>/install` | Собственные команды клона, создаются заглушками через `repos:sync` |
+
+Общие помощники для клонов лежат в `scripts/clones.sh`: список клонов из `[bootstrap.repos]`, имена репозиториев из `repos.toml`, проверка, что клон существует, и окончание заглушки `not_configured`.
+
+## Задачи клона
+
+`mise run repos:sync` создаёт `mise-tasks/<name>/{test,check,run,install}` для нового репозитория. Каждая заглушка переходит в клон и падает с сообщением «command not configured yet». Замените её последнюю строку собственной командой клона и удалите комментарий `# repos:stub`, например:
+
+```bash
+#!/usr/bin/env bash
+#MISE description="api: tests, optionally one test file (npm test in repos/api)"
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+require_clone repos/api
+cd repos/api
+exec npm test -- "$@"
+```
+
+Клону могут понадобиться и другие задачи, например фоновый воркер; добавьте их в его папку так же. `mise run repos:sync` сам перечисляет каждую дополнительную задачу в таблице команд клона в `AGENTS.md`, с текстом её строки `#MISE description="<name>: <text>"`.
+
+## Как добавить задачу
+
+Создайте файл с шебангом `#!/usr/bin/env bash`, строкой `#MISE description="..."` и битом исполнения (`chmod +x`). Аргументы объявляются строками `#USAGE arg "<name>"`, а значение приходит в переменной `usage_<name>`. Задача запускается с корнем метарепозитория в качестве рабочей папки. Задача клона с тем же именем перекрывает задачу метарепозитория, когда `mise run` вызывается внутри клона.
+
+Хук `mise-tasks` в `hk.pkl` проверяет синтаксис при коммите. Тесты в `tests/` проверяют поведение задач.
+{% else -%}
+# mise-tasks
+
+Each task is a separate executable file. The file name is the task name: `mise run clone` runs `mise-tasks/clone`, and `mise run api:test` runs `mise-tasks/api/test`.
+
+## Tasks
+
+| File | What it does |
+| --- | --- |
+| `setup` | `hk install --mise`, `kit:install` when sdd-kit is missing, `mise lock` when `mise.lock` is missing, `add-repo` when `repos.toml` is empty, `clone`, then each clone's `install` |
+| `add-repo` | `node scripts/repos.mjs add`: asks for repositories, appends them to `repos.toml`, runs `repos:sync`, offers to clone |
+| `repos/sync`, `repos/check` | Regenerate, or check, everything that lists the repositories ([../docs/agents/tooling.md](../docs/agents/tooling.md)) |
+| `clone` | Clones the missing clones from `[bootstrap.repos]` on their rest branch, leaves existing clones alone |
+| `pull` | `git pull --rebase --autostash` in the meta-repository and each clone on its branch, lists failures and branches without upstream |
+| `status` | Branch and number of changed files in each clone, a missing clone is marked `missing` |
+| `check` | A step per clone (`<name>:check`), `code-rules`, `repos` and a result table |
+| `lint` | `rumdl`, `typos`, `agnix` and `scripts/check-agent-files.sh` |
+| `test` | Meta-repository tests from `tests/` |
+| `kit/install`, `kit/update` | Install or update sdd-kit through `scripts/kit.sh` |
+| `<name>/test`, `<name>/check`, `<name>/run`, `<name>/install` | A clone's own commands, created as stubs by `repos:sync` |
+
+Shared clone helpers live in `scripts/clones.sh`: the clone list from `[bootstrap.repos]`, the repository names from `repos.toml`, a check that a clone exists and the stub ending `not_configured`.
+
+## A clone's tasks
+
+`mise run repos:sync` creates `mise-tasks/<name>/{test,check,run,install}` for a new repository. Each stub changes into the clone and fails with "command not configured yet". Replace its last line with the clone's own command and delete the `# repos:stub` comment, for example:
+
+```bash
+#!/usr/bin/env bash
+#MISE description="api: tests, optionally one test file (npm test in repos/api)"
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+require_clone repos/api
+cd repos/api
+exec npm test -- "$@"
+```
+
+A clone may need more tasks, for example a background worker; add them to its folder the same way. `mise run repos:sync` lists every extra task in the clone's command table in `AGENTS.md`, with the text of its `#MISE description="<name>: <text>"` line.
+
+## Adding a task
+
+Create a file with the shebang `#!/usr/bin/env bash`, a `#MISE description="..."` line and the executable bit (`chmod +x`). Arguments are declared with `#USAGE arg "<name>"` lines, and the value arrives in the `usage_<name>` variable. The task runs with the meta-repository root as its working directory. A clone task with the same name overrides the meta-repository task when `mise run` is called inside the clone.
+
+The `mise-tasks` hook in `hk.pkl` checks the syntax on commit. Tests in `tests/` check the tasks' behaviour.
+{% endif -%}

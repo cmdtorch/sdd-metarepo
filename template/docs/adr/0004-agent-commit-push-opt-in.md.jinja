@@ -1,0 +1,62 @@
+---
+status: accepted
+---
+
+{% if language == 'ru' -%}
+
+# Агент коммитит и пушит только с разрешения и никогда в main
+
+{% if agent_git_default == 'on' -%}
+Агент, запущенный из корня, в этом проекте по умолчанию коммитит и пушит, и в клонах, и в метарепозитории: общий `.claude/settings.json` задаёт `METAREPO_AGENT_COMMIT=1` и `METAREPO_AGENT_PUSH=1`. Разработчик отключает любое из двух для себя в `env` своего личного `.claude/settings.local.json`. Коммит в `main` и пуш в `main` агенту запрещены всегда.
+{%- else -%}
+Агент, запущенный из корня, по умолчанию не коммитит и не пушит ни в клонах, ни в метарепозитории. Разработчик разрешает это для себя двумя отдельными переменными в `env` своего личного `.claude/settings.local.json`: `METAREPO_AGENT_COMMIT=1` для коммитов и `METAREPO_AGENT_PUSH=1` для пушей. Коммит в `main` и пуш в `main` агенту запрещены всегда.
+{%- endif %} Это обеспечивает хук Claude Code `.claude/hooks/agent-git-guard.mjs`. Причина: `main` клона — это продакшен, а в одной команде работают с разными привычками: одни хотят, чтобы агент коммитил сам, другие нет.
+
+## Рассмотренные варианты
+
+**Только правило в `AGENTS.md`.** Агент может пропустить правило; проверку пропустить нельзя.
+
+**Запрет `git push` в `.claude/settings.json`.** Одинаково для всей команды и не позволяет разрешить пуш тем, кто этого хочет.
+
+**Командная настройка без личного переопределения.** Один выбор для всех, хотя решение личное.
+
+**Одна настройка для коммита и пуша вместе.** Часто удобно разрешить коммиты, а пуш оставить человеку.
+
+**Git-хук в каждом клоне, который останавливает и людей.** Ограничение не предназначено для людей, а у клонов уже есть свои хуки, с которыми новый пришлось бы совмещать.
+
+**Хук Claude Code с двумя переменными, командным значением по умолчанию и личным переопределением (выбрано).** Работает одинаково для клонов и корня и не трогает клоны.
+
+## Последствия
+
+- Хук читает текст команды. Он не увидит коммит из скрипта или git-алиаса; защитой остаются хуки клонов и правила веток.
+- Переменная, записанная в самой команде, не считается. Разрешение живёт только в окружении сессии.
+- Запись хука в `.claude/settings.json` стоит рядом с хуками sdd-kit. После обновления sdd-kit `mise run test` проверяет, что она на месте.
+{% else -%}
+# The agent commits and pushes only with permission, never to main
+
+{% if agent_git_default == 'on' -%}
+An agent started from the root commits and pushes by default in this project, in the clones and in the meta-repository: the shared `.claude/settings.json` sets `METAREPO_AGENT_COMMIT=1` and `METAREPO_AGENT_PUSH=1`. A developer turns either off for themselves in the `env` of their personal `.claude/settings.local.json`. A commit on `main` and a push to `main` are always forbidden to the agent.
+{%- else -%}
+An agent started from the root does not commit or push by default, neither in the clones nor in the meta-repository. A developer allows it for themselves with two separate variables in the `env` of their personal `.claude/settings.local.json`: `METAREPO_AGENT_COMMIT=1` for commits and `METAREPO_AGENT_PUSH=1` for pushes. A commit on `main` and a push to `main` are always forbidden to the agent.
+{%- endif %} The Claude Code hook `.claude/hooks/agent-git-guard.mjs` enforces this. The reason: a clone's `main` is production, and one team works with different habits: some want the agent to commit on its own, some do not.
+
+## Considered Options
+
+**Only a rule in `AGENTS.md`.** The agent can skip a rule; a check cannot be skipped.
+
+**Denying `git push` in `.claude/settings.json`.** The same for the whole team, and it does not let those who want it allow push.
+
+**A team setting with no personal override.** One choice for everyone, while the decision is personal.
+
+**One setting for commit and push together.** It is often handy to allow commits and leave pushes to a human.
+
+**A git hook in each clone that also stops people.** The restriction is not meant for people, and the clones already have their own hooks that a new one would have to be combined with.
+
+**A Claude Code hook with two variables, a team default and a personal override (chosen).** Works the same for the clones and the root and does not touch the clones.
+
+## Consequences
+
+- The hook reads the command text. It will not see a commit from a script or a git alias; the clones' hooks and the branch rules remain the safeguard.
+- A variable written in the command itself does not count. The permission lives only in the session environment.
+- The hook entry in `.claude/settings.json` sits next to the sdd-kit hooks. After an sdd-kit update, `mise run test` checks that it is still there.
+{% endif -%}

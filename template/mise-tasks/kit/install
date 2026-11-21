@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Install sdd-kit: the installed version, else the latest release (SDD_KIT_REF=<tag> to pick one)"
+set -euo pipefail
+exec "$MISE_CONFIG_ROOT/scripts/kit.sh" install

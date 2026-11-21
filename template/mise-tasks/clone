@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#MISE description="Clone the missing repositories from [bootstrap.repos] into repos/ on their rest branch"
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+
+# [bootstrap.repos] (generated from repos.toml) defines the clones, their URLs and
+# branches. Only missing clones are cloned. `mise bootstrap repos apply` does not
+# fit here: it switches a clone on a feature branch back to its rest branch. An
+# existing clone stays on its branch with its commits and changes, so a repeated
+# run is safe.
+failed=()
+while read -r path url ref state; do
+	case "$state" in
+	missing)
+		echo "== $path"
+		git clone --branch "$ref" "$url" "$path" || failed+=("$path  $url")
+		;;
+	current | differs) ;;
+	dirty) echo "$path: has uncommitted changes, clone left as is" ;;
+	*) failed+=("$path  $url  ($state)") ;;
+	esac
+done < <(clones_states)
+
+if [ "${#failed[@]}" -gt 0 ]; then
+	echo >&2
+	echo "Clone failed, check access to the repository:" >&2
+	printf '  %s\n' "${failed[@]}" >&2
+	exit 1
+fi

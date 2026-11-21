@@ -1,0 +1,58 @@
+{% if language == 'ru' -%}
+
+# Глоссарий
+
+Термины, которые используют документы и правила этого репозитория. Термины метарепозитория приходят с шаблоном; термины проекта добавляются ниже по мере появления, по строке на термин.
+
+## Метарепозиторий
+
+| Термин | Значение |
+| --- | --- |
+| Метарепозиторий | Этот репозиторий. В нём лежат общие правила для агентов, OpenSpec, решения и проверки, и в нём находятся клоны репозиториев приложений. Кода приложений в нём нет. |
+| Клон | Папка в `repos/` со своим `.git`, например `repos/api`. Метарепозиторий её не отслеживает. |
+| Реестр | Файл `repos.toml`, единственный список репозиториев с их URL, ветками покоя, моделями веток и стеками. Остальные списки генерируются из него командой `mise run repos:sync`. |
+| Ветка покоя (rest branch) | Ветка, на которой клон стоит между задачами, его `ref` в `repos.toml`, обычно `dev`; она развёрнута на тестовом сервере. |
+| Модель веток | Как начинаются и заканчиваются рабочие ветки клона: `main-based` (от `main`, в `dev` для QA, затем в `main`) или `dev-based` (от `dev`, в `dev`; `main` получает только слияния `dev`). |
+| Ветка слияния | Ветка `merge/<name>-into-dev` клона main-based, создаётся от `dev`, когда рабочая ветка конфликтует с `dev`. В неё вливается только её рабочая ветка, и через неё идёт pull request в `dev`. |
+| Бэклог клонов | Файл `docs/clone-backlog.md` с изменениями, которые были бы полезны внутри клонов, но намеренно не сделаны из метарепозитория, у каждого есть причина. |
+| Список клонов для sdd-kit | Файл `openspec/clones`, через который sdd-kit знает о клонах. Генерируется из реестра. |
+| Изменение | Изменение OpenSpec в `openspec/changes/`: вопросы, предложение, спецификации, дизайн, задачи. Хранится только в корне. |
+| Спецификация | Требования к одной возможности в `openspec/specs/`, со сценариями. |
+| Общая проверка | Команда `mise run check`. Она запускает собственные линтеры и проверки типов каждого клона и общие проверки корня. |
+| Правило | Проверка `ast-grep` в `ast-grep/rules/` с тестом в `ast-grep/rule-tests/`. |
+| ADR | Запись о решении в `docs/adr/`, с номером и статусом. |
+| `main` | В клоне — продакшен-ветка; в метарепозитории — единственная долгоживущая ветка. Агент никогда не коммитит и не пушит в неё. |
+
+## Проект
+
+| Термин | Значение |
+| --- | --- |
+{% else -%}
+# Glossary
+
+Terms used by the documents and rules of this repository. The meta-repository terms come with the template; project terms are added below them as they appear, one row each.
+
+## Meta-repository
+
+| Term | Meaning |
+| --- | --- |
+| Meta-repository | This repository. It holds the shared agent rules, OpenSpec, decisions and checks, and contains the clones of the application repositories. It has no application code. |
+| Clone | A folder in `repos/` with its own `.git`, for example `repos/api`. The meta-repository does not track it. |
+| Registry | The file `repos.toml`, the only list of repositories with their URLs, rest branches, branch models and stacks. Other lists are generated from it with `mise run repos:sync`. |
+| Rest branch | The branch a clone stays on between tasks, its `ref` in `repos.toml`, usually `dev`; it is deployed to the test server. |
+| Branch model | How a clone's work branches start and end: `main-based` (from `main`, into `dev` for QA, then into `main`) or `dev-based` (from `dev`, into `dev`; `main` receives only merges of `dev`). |
+| Merge branch | A branch `merge/<name>-into-dev` of a main-based clone, created from `dev` when a work branch conflicts with `dev`. It receives only merges of its work branch and carries the pull request into `dev`. |
+| Clone backlog | The file `docs/clone-backlog.md` with changes that would be useful inside the clones but were deliberately not made from the meta-repository, each with a reason. |
+| Kit clone list | The file `openspec/clones`, through which sdd-kit knows the clones. It is generated from the registry. |
+| Change | An OpenSpec change in `openspec/changes/`: questions, proposal, specs, design, tasks. Kept only in the root. |
+| Spec | The requirements of one capability in `openspec/specs/`, with scenarios. |
+| Single check | The `mise run check` command. It runs every clone's own linters and type checks and the root's shared checks. |
+| Rule | An `ast-grep` check in `ast-grep/rules/` with a test in `ast-grep/rule-tests/`. |
+| ADR | A decision record in `docs/adr/`, with a number and a status. |
+| `main` | In a clone, the production branch; in the meta-repository, the only long-lived branch. The agent never commits or pushes to it. |
+
+## Project
+
+| Term | Meaning |
+| --- | --- |
+{% endif -%}

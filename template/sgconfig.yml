@@ -1,0 +1,7 @@
+# ast-grep: shared syntax-tree pattern rules for the clones. Run from the
+# meta-repository root, usually through `mise run check`. The folder layout is
+# described in ast-grep/README.md.
+ruleDirs:
+  - ast-grep/rules
+testConfigs:
+  - testDir: ast-grep/rule-tests

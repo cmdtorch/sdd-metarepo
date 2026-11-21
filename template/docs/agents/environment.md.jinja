@@ -1,0 +1,44 @@
+{% if language == 'ru' -%}
+
+# Файлы окружения
+
+Прочитайте это перед запуском приложений и их тестов. Файлы окружения разработчики пишут сами. `mise run setup` их не создаёт, не меняет и не удаляет, и в git клонов они никогда не попадают.
+
+## По клонам
+
+Каждый клон сам описывает свои файлы окружения, обычно в README или в файле-примере вроде `.env.example`. Здесь для каждого клона записано, какой файл читает приложение при запуске из метарепозитория, где лежит его пример и какие значения отличаются локально. Таблицу ниже генерирует `mise run repos:sync` из полей `env_file`, `env_example` и `env_notes` в `repos.toml`; их заполняет `/bootstrap` или разработчик. Пояснения, которые не помещаются в ячейку, пишутся под заголовком для каждого клона вне маркеров.
+
+<!-- repos:begin:env -->
+
+| Клон | Файл | Пример | Заметки |
+| --- | --- | --- | --- |
+
+<!-- repos:end:env -->
+
+Клон без файла-примера получает запись в [../clone-backlog.md](../clone-backlog.md).
+
+## Инструменты из mise
+
+Команды из корня запускаются с инструментами из корневого `mise.toml`, среди них Node 24. Клону со своим `mise.toml` `mise run setup` выдаёт доверие, и внутри своей папки клон использует свои версии. Git-хуки клона могут искать инструменты в другом месте (например, в nvm); коммит из терминала с активированным mise работает, коммит из графического git-клиента может не сработать.
+{% else -%}
+# Environment files
+
+Read this before running the applications and their tests. Developers write the environment files themselves. `mise run setup` neither creates, changes nor deletes them, and they never get into the clones' git.
+
+## Per clone
+
+Each clone documents its own environment files, usually in its README or an example file such as `.env.example`. Here, per clone, is which file the application reads when it runs from the meta-repository, where its example is, and which values differ locally. `mise run repos:sync` generates the table below from the `env_file`, `env_example` and `env_notes` fields in `repos.toml`; `/bootstrap` or a developer fills them in. Explanations that do not fit a table cell go under a heading per clone, outside the markers.
+
+<!-- repos:begin:env -->
+
+| Clone | File | Example | Notes |
+| --- | --- | --- | --- |
+
+<!-- repos:end:env -->
+
+A clone without an example file gets an entry in [../clone-backlog.md](../clone-backlog.md).
+
+## Tools from mise
+
+Commands from the root run with the tools in the root `mise.toml`, Node 24 among them. A clone with its own `mise.toml` is trusted by `mise run setup` and uses its own versions inside its folder. A clone's git hooks may look for tools elsewhere (for example nvm); a commit from a terminal with mise activated works, a commit from a graphical git client may not.
+{% endif -%}

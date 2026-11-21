@@ -1,0 +1,30 @@
+{% if language == 'ru' -%}
+
+# docs
+
+Документы метарепозитория, разделённые по читателю.
+
+| Путь | Читатель | О чём |
+| --- | --- | --- |
+| [agents/](agents/README.md) | Агент | Правила работы, которые не помещаются в `AGENTS.md` |
+| [adr/](adr/README.md) | Агент и человек | Решения, которые касаются всех репозиториев, и их причины |
+| [clone-backlog.md](clone-backlog.md) | Агент и человек | Изменения клонов, отложенные на потом |
+
+Требования к поведению живут в спецификациях OpenSpec в `openspec/specs/`. Документ в `docs/` объясняет, как работать.
+
+Когда документ превращается в правило, которое может проверить код, правило переезжает в проверку, а документ ссылается на неё.
+{% else -%}
+# docs
+
+Meta-repository documents, split by reader.
+
+| Path | Reader | About |
+| --- | --- | --- |
+| [agents/](agents/README.md) | Agent | Working rules that do not fit in `AGENTS.md` |
+| [adr/](adr/README.md) | Agent and human | Decisions that apply to all repositories, and their reasons |
+| [clone-backlog.md](clone-backlog.md) | Agent and human | Clone changes deferred for later |
+
+Behaviour requirements live in the OpenSpec specs in `openspec/specs/`. A document in `docs/` explains how to work.
+
+When a document turns into a rule that code can check, the rule moves into a check and the document links to it.
+{% endif -%}

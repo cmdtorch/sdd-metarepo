@@ -1,0 +1,19 @@
+# rumdl: Markdown in the root (mise run lint). Not checked: the clones in repos/
+# (they check themselves), OpenSpec changes and specs (sdd-kit checks them), and
+# files that OpenSpec and sdd-kit install and overwrite on update.
+[global]
+exclude = [
+    "repos/",
+    "openspec/changes/",
+    "openspec/specs/",
+    "openspec/protocols/",
+    "openspec/schemas/",
+    "openspec/tooling/",
+    ".claude/skills/openspec-*/",
+    ".claude/commands/",
+    ".claude/agents/",
+]
+
+[MD013]
+# A paragraph is written on one line, without wrapping to a width
+enabled = false

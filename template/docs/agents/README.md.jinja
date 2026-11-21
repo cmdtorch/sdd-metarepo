@@ -1,0 +1,36 @@
+{% if language == 'ru' -%}
+
+# docs/agents
+
+Правила для агентов. Корневой `AGENTS.md` короткий и служит навигацией; подробности живут здесь. Агент читает документ, когда работа попадает в его область (таблица «Навигация» в `AGENTS.md`).
+
+| Документ | Когда читать |
+| --- | --- |
+| [repository-layout.md](repository-layout.md) | Перед работой с клонами и при выборе, откуда запускать агента |
+| [tooling.md](tooling.md) | Перед изменением `mise.toml`, `repos.toml`, задач, хуков, sdd-kit, правил `ast-grep` и тестов корня |
+| [agent-settings.md](agent-settings.md) | Перед изменением `.claude/`, разрешений, хуков агента |
+| [branches.md](branches.md) | Перед созданием ветки, коммита или pull request |
+| [ticket-workflow.md](ticket-workflow.md) | {% if tracker != 'none' %}Работа с тикетом {{ tracker_name }}: чтение, вопросы, когда и как открывать pull request{% else %}Когда и как открывать pull request{% endif %} |
+| [environment.md](environment.md) | Перед запуском приложений и их тестов |
+
+## Как писать документы в этой папке
+
+Документ отвечает на один вопрос и начинается с него. Правила пишутся утверждениями, у каждого есть причина. Если что-то проверяет команда, документ её называет. Не дублируйте `AGENTS.md`; достаточно ссылки.
+{% else -%}
+# docs/agents
+
+Agent rules. The root `AGENTS.md` is short and works as navigation; the details live here. The agent reads a document when the work falls into its area (the "Navigation" table in `AGENTS.md`).
+
+| Document | When to read |
+| --- | --- |
+| [repository-layout.md](repository-layout.md) | Before working with clones and when choosing where to start the agent |
+| [tooling.md](tooling.md) | Before changing `mise.toml`, `repos.toml`, tasks, hooks, sdd-kit, `ast-grep` rules and root tests |
+| [agent-settings.md](agent-settings.md) | Before changing `.claude/`, permissions, agent hooks |
+| [branches.md](branches.md) | Before creating a branch, a commit or a pull request |
+| [ticket-workflow.md](ticket-workflow.md) | {% if tracker != 'none' %}Working a {{ tracker_name }} ticket: reading it, questions, when and how to open a pull request{% else %}When and how to open a pull request{% endif %} |
+| [environment.md](environment.md) | Before running the applications and their tests |
+
+## Writing documents in this folder
+
+A document answers one question and starts with it. Rules are written as statements, each with a reason. Anything a command checks names that command. Do not duplicate `AGENTS.md`; a link is enough.
+{% endif -%}

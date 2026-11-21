@@ -1,0 +1,50 @@
+---
+status: accepted
+---
+
+{% if language == 'ru' -%}
+
+# Клоны создаются из реестра `repos.toml` через `[bootstrap.repos]` в mise, без сабмодулей
+
+Репозитории приложений живут в `repos/<name>` как обычные клоны со своим git. Список, их URL, ветки покоя и модели веток записаны в `repos.toml`; `mise run repos:sync` записывает список клонов в `[bootstrap.repos]` в `mise.toml` и в `openspec/clones`, а `mise run clone` клонирует недостающие. Папка `repos/` в `.gitignore`; метарепозиторий не отслеживает клоны. Причина: всё и так управляется через mise, а клоны должны жить своей жизнью: со своими ветками, pull request и хуками.
+
+## Рассмотренные варианты
+
+**git submodules.** Они фиксируют коммит клона в метарепозитории, поэтому каждое движение `dev` требует коммита в корне. Агентов и людей путает detached HEAD.
+
+**ghorg или свой скрипт клонирования.** Ещё один инструмент или ещё один список, который надо держать в согласии с остальными.
+
+**`mise bootstrap repos apply` как команда клонирования.** Он переключает клон, который стоит на feature-ветке со своими коммитами, обратно на ветку покоя. Поэтому `mise run clone` берёт URL из `[bootstrap.repos]`, но клонирует сам и только недостающие клоны.
+
+**`[bootstrap.repos]` в `mise.toml` как единственный список.** В нём нет места для модели веток и стека, а `openspec/clones`, документацию и папки задач всё равно пришлось бы согласовывать вручную.
+
+**Реестр `repos.toml`, из которого генерируются остальные списки (выбрано).** Один список со всем, что нужно агенту и задачам; остальные списки генерируются из него, а `mise run check` падает, когда они расходятся.
+
+## Последствия
+
+- Версия клона — та, что была при клонировании и при последнем `mise run pull`. Метарепозиторий не хранит пары «спецификация плюс код на конкретных коммитах».
+- После ручной правки `repos.toml` нужен `mise run repos:sync`; `mise run check` сообщает, если его забыли.
+- Для клонирования нужен доступ к каждому репозиторию из реестра, обычно SSH-ключ.
+{% else -%}
+# Clones are created from the `repos.toml` registry through `[bootstrap.repos]` in mise, without submodules
+
+The application repositories live in `repos/<name>` as plain clones with their own git. The list, their URLs, rest branches and branch models are recorded in `repos.toml`; `mise run repos:sync` writes the clone list into `[bootstrap.repos]` in `mise.toml` and into `openspec/clones`, and `mise run clone` clones the missing ones. The `repos/` folder is in `.gitignore`; the meta-repository does not track the clones. The reason: everything is already managed through mise, and the clones must live their own lives: their own branches, pull requests and hooks.
+
+## Considered Options
+
+**git submodules.** They pin the clone's commit in the meta-repository, so every move of `dev` needs a commit in the root. Agents and people get confused by a detached HEAD.
+
+**ghorg or a custom clone script.** One more tool or one more list to keep in step.
+
+**`mise bootstrap repos apply` as the clone command.** It switches a clone that is on a feature branch with its own commits back to its rest branch. So `mise run clone` takes the URLs from `[bootstrap.repos]` but clones by itself, and only the missing clones.
+
+**`[bootstrap.repos]` in `mise.toml` as the only list.** It has no place for the branch model and the stack, and `openspec/clones`, the docs and the task folders would still be kept in step by hand.
+
+**A `repos.toml` registry that generates the other lists (chosen).** One list with everything the agent and the tasks need; the other lists are generated from it, and `mise run check` fails when they drift apart.
+
+## Consequences
+
+- A clone's version is whatever it was at clone time and at the last `mise run pull`. The meta-repository does not store "spec plus code at specific commits" pairs.
+- A hand edit of `repos.toml` needs `mise run repos:sync`; `mise run check` reports a forgotten one.
+- Cloning needs access to every repository in the registry, usually an SSH key.
+{% endif -%}

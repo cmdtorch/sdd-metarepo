@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Update sdd-kit to the latest release (SDD_KIT_REF=<tag> to pick one) and pin its OpenSpec version"
+set -euo pipefail
+exec "$MISE_CONFIG_ROOT/scripts/kit.sh" update

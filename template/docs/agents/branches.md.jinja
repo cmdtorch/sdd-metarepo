@@ -1,0 +1,181 @@
+{% if language == 'ru' -%}
+# Ветки и pull request
+
+Прочитайте это перед созданием ветки, коммита или pull request, в клоне или в метарепозитории.
+
+## Клоны
+
+В каждом клоне `main` — это продакшен, а ветка покоя — тестовый сервер. Ветка покоя — это `ref` клона в `repos.toml`, обычно `dev`; ниже она называется `dev`. Ни в один клон не делают прямых коммитов или пушей в `main`. Между задачами клон стоит на своей ветке покоя: `mise run clone` создаёт новый клон на ней, а `mise run pull` обновляет метарепозиторий и каждый клон на его текущей ветке и никогда не переключает ветки. `git pull` обновляет и `origin/main`.
+
+Каждый клон следует одной из двух моделей веток, записанной как `branch_model` в `repos.toml`. Они различаются тем, где рабочая ветка начинается и где заканчивается.
+
+<!-- repos:begin -->
+
+Репозиториев пока нет. `mise run add-repo` добавит строку для каждого репозитория.
+
+<!-- repos:end -->
+
+Рабочие ветки называются `{{ feature_prefix }}<name>` для фич и `{{ bugfix_prefix }}<ticket-or-name>` для исправлений.
+
+### Модель main-based
+
+| Ветка | Что это |
+| --- | --- |
+| `main` | Продакшен. Принимает рабочие ветки через pull request после одобрения QA. |
+| `dev` | Тестовый сервер: `main` плюс всё, что на QA. Ветка интеграции, а не релизная ветка. |
+| `{{ feature_prefix }}<name>`, `{{ bugfix_prefix }}<ticket-or-name>` | Создаётся от обновлённой `main`; попадает в `dev` для QA через pull request; её собственный pull request идёт в `main`. |
+| `merge/<name>-into-dev` | Создаётся от `dev`, только когда рабочая ветка конфликтует с `dev`; через неё идёт pull request в `dev`. |
+
+Порядок работы над задачей:
+
+1. `mise run pull` и `mise run status`: клон стоит на `dev` без чужих изменений, а `origin/main` свежая.
+2. `git -C repos/<clone> switch --no-track -c {{ bugfix_prefix }}<name> origin/main`. `--no-track` не даёт `origin/main` стать upstream ветки; git-страж агента отклоняет голый `git push`, у которого upstream — `main`.
+3. Правки, тесты и проверки через `mise run <clone>:*`. Перед QA `mise run check` должен быть зелёным.
+4. Закоммитьте и запушьте ветку командой `git push -u origin <branch>`.
+5. Откройте pull request из рабочей ветки в `dev` для QA. Рабочая ветка никогда не сливается в `dev` напрямую через `git merge`; она попадает в `dev` только через pull request, поэтому каждое изменение на тестовом сервере прошло ревью.
+6. После одобрения QA откройте pull request из рабочей ветки в `main` (не из `dev`), как описано в [ticket-workflow.md](ticket-workflow.md). Он сливается merge-коммитом, а не через squash или rebase.
+
+Оба pull request разработчик сливает вручную.
+
+Никогда не сливайте `dev` в рабочую ветку и никогда не ответвляйтесь от `dev`: это затаскивает в pull request в `main` все невыпущенные изменения. Чтобы получить свежий код, в ветку сливают `main`, это делает разработчик или агент по его просьбе. После релиза разработчик сливает `main` обратно в `dev`.
+
+#### Конфликты с dev
+
+Когда у pull request рабочей ветки в `dev` есть конфликты, создайте от `dev` ветку слияния с именем `merge/<work branch without its prefix>-into-dev`, например `merge/PROJ-123-into-dev` для `{{ bugfix_prefix }}PROJ-123`. Слейте в неё рабочую ветку, разрешите конфликты там, запушьте её и откройте pull request в `dev` из ветки слияния. Pull request в `main` по-прежнему идёт из рабочей ветки, в которой нет `dev`. Если ветка слияния уже существует, используйте её.
+
+#### Исправления после ревью или QA
+
+Исправления после ревью или QA коммитятся в ту же рабочую ветку и пушатся, чтобы открытый pull request обновился. Если у рабочей ветки есть ветка слияния, снова слейте в неё рабочую ветку и запушьте её. Второй pull request не открывается. Ничего не коммитится напрямую в ветку слияния или в `dev`: ветка слияния принимает только слияния своей рабочей ветки, поэтому исправление попадает в `main` вместе с рабочей веткой.
+
+### Модель dev-based
+
+| Ветка | Что это |
+| --- | --- |
+| `main` | Продакшен. Принимает только слияния `dev`. |
+| `dev` | Тестовый сервер. |
+| `{{ feature_prefix }}<name>`, `{{ bugfix_prefix }}<ticket-or-name>` | Создаётся от обновлённой `dev`; её pull request идёт в `dev`. |
+
+Порядок работы над задачей:
+
+1. `mise run pull` и `mise run status`: клон стоит на `dev` без чужих изменений.
+2. `git -C repos/<clone> switch -c {{ feature_prefix }}<name>`.
+3. Правки, тесты и проверки через `mise run <clone>:*`.
+4. Закоммитьте и запушьте ветку, откройте pull request в `dev` ([ticket-workflow.md](ticket-workflow.md)). Исправления после ревью или QA идут в ту же ветку.
+
+### Несколько клонов
+
+Задача, которая охватывает несколько клонов, получает одноимённые ветки в каждом, и каждая следует модели своего клона: ветка main-based начинается от `main`, ветка dev-based — от `dev`.
+
+## Метарепозиторий
+
+У метарепозитория одна долгоживущая ветка, `main`. Рабочая ветка создаётся от обновлённой `main`, а изменения попадают в `main` только через pull request. Изменение OpenSpec, которое затрагивает клоны, тоже получает ветку в метарепозитории, для своих артефактов.
+
+## Кто сливает
+
+Агент коммитит, пушит и открывает pull request, насколько позволяют его настройки ([agent-settings.md](agent-settings.md)). Он никогда не сливает pull request и никогда не делает слияние в `main`, `dev` или ветку покоя, ни в каком клоне и ни в метарепозитории. Pull request разработчик сливает вручную, потому что слияние в `dev` или `main` меняет сервер или продакшен. Единственное слияние, которое делает агент, — рабочей ветки в её ветку слияния.
+
+## Никакого упоминания Claude
+
+Сообщения коммитов, заголовки pull request, описания pull request и комментарии к pull request не содержат упоминания Claude, ни в клонах, ни в метарепозитории: ни строки `Co-Authored-By:` с Claude или `anthropic.com`, ни строки `Generated with Claude Code`, ни любого другого упоминания Claude или Anthropic. Работа выходит под именем разработчика. Имена файлов правил, такие как `CLAUDE.md` и `.claude/`, и название инструмента `Claude Code` допустимы. Общие настройки отключают строки атрибуции Claude Code ([agent-settings.md](agent-settings.md)).
+
+## Сообщения коммитов
+
+Сообщения коммитов следуют [Conventional Commits](https://www.conventionalcommits.org): `feat: ...`, `fix: ...`, `docs: ...`, `chore: ...`, текст после типа пишется на русском.
+
+## Что проверяет код
+
+- Агент не коммитит и не пушит без разрешения и никогда не коммитит и не пушит в `main`, ни в клонах, ни в метарепозитории ([agent-settings.md](agent-settings.md)).
+- Git-хук агента отклоняет `gh pr merge` в любом репозитории и `git merge`, пока целевой репозиторий стоит на `main`, `dev` или своей ветке покоя.
+- Git-хук агента отклоняет текст коммита или pull request с упоминанием Claude и называет, что нашёл.
+- Собственные хуки клонов срабатывают на коммит в клоне так же, как при работе с репозиторием напрямую.
+{% else -%}
+# Branches and pull requests
+
+Read this before creating a branch, a commit or a pull request, in a clone or in the meta-repository.
+
+## Clones
+
+In every clone `main` is production and the rest branch is the test server. The rest branch is the clone's `ref` in `repos.toml`, usually `dev`; below it is called `dev`. No clone gets direct commits or pushes to `main`. A clone stays on its rest branch at rest: `mise run clone` creates a new clone on it, and `mise run pull` updates the meta-repository and each clone on its current branch and never switches branches. `git pull` also updates `origin/main`.
+
+Each clone follows one of two branch models, recorded as `branch_model` in `repos.toml`. They differ in where a work branch starts and ends.
+
+<!-- repos:begin -->
+
+No repositories yet. `mise run add-repo` adds a row for each repository.
+
+<!-- repos:end -->
+
+Work branches are named `{{ feature_prefix }}<name>` for features and `{{ bugfix_prefix }}<ticket-or-name>` for fixes.
+
+### Main-based model
+
+| Branch | What it is |
+| --- | --- |
+| `main` | Production. Receives work branches by pull request after QA approves them. |
+| `dev` | Test server: `main` plus everything in QA. An integration branch, not a release branch. |
+| `{{ feature_prefix }}<name>`, `{{ bugfix_prefix }}<ticket-or-name>` | Created from an updated `main`; reaches `dev` for QA by pull request; its own pull request goes to `main`. |
+| `merge/<name>-into-dev` | Created from `dev` only when the work branch conflicts with `dev`; carries the pull request into `dev`. |
+
+The order of work on a task:
+
+1. `mise run pull` and `mise run status`: the clone is on `dev` with no foreign changes, and `origin/main` is fresh.
+2. `git -C repos/<clone> switch --no-track -c {{ bugfix_prefix }}<name> origin/main`. `--no-track` keeps `origin/main` from becoming the branch's upstream; the agent's git guard refuses a bare `git push` whose upstream is `main`.
+3. Edits, tests and checks with `mise run <clone>:*`. `mise run check` must be green before QA.
+4. Commit and push the branch with `git push -u origin <branch>`.
+5. Open a pull request from the work branch into `dev` for QA. A work branch is never merged into `dev` directly with `git merge`; it reaches `dev` only through a pull request, so every change on the test server has been reviewed.
+6. After QA approves, open a pull request from the work branch into `main` (not from `dev`), as described in [ticket-workflow.md](ticket-workflow.md). It is merged with a merge commit, not squash or rebase.
+
+The developer merges both pull requests by hand.
+
+Never merge `dev` into a work branch and never branch from `dev`: it drags every unreleased change into the pull request to `main`. To pick up fresh code, `main` is merged into the branch, by the developer or on the developer's request. After a release, the developer merges `main` back into `dev`.
+
+#### Conflicts with dev
+
+When the pull request of a work branch into `dev` has conflicts, create a merge branch from `dev` named `merge/<work branch without its prefix>-into-dev`, for example `merge/PROJ-123-into-dev` for `{{ bugfix_prefix }}PROJ-123`. Merge the work branch into it, resolve the conflicts there, push it and open the pull request into `dev` from the merge branch. The pull request into `main` still comes from the work branch, which stays free of `dev`. If the merge branch already exists, reuse it.
+
+#### Fixes after review or QA
+
+Fixes after review or QA are committed on the same work branch and pushed, so the open pull request updates. When the work branch has a merge branch, merge the work branch into it again and push it. No second pull request is opened. Nothing is committed directly on a merge branch or on `dev`: a merge branch receives only merges of its work branch, so the fix also reaches `main` with the work branch.
+
+### Dev-based model
+
+| Branch | What it is |
+| --- | --- |
+| `main` | Production. Receives only merges of `dev`. |
+| `dev` | Test server. |
+| `{{ feature_prefix }}<name>`, `{{ bugfix_prefix }}<ticket-or-name>` | Created from an updated `dev`; its pull request goes to `dev`. |
+
+The order of work on a task:
+
+1. `mise run pull` and `mise run status`: the clone is on `dev` with no foreign changes.
+2. `git -C repos/<clone> switch -c {{ feature_prefix }}<name>`.
+3. Edits, tests and checks with `mise run <clone>:*`.
+4. Commit and push the branch, open a pull request to `dev` ([ticket-workflow.md](ticket-workflow.md)). Fixes after review or QA go on the same branch.
+
+### Several clones
+
+A task spanning several clones gets same-named branches in each, each following its own clone's model: a main-based branch starts from `main`, a dev-based branch from `dev`.
+
+## Meta-repository
+
+The meta-repository has one long-lived branch, `main`. A working branch is created from an updated `main`, and changes reach `main` only through a pull request. An OpenSpec change that touches the clones also gets a branch in the meta-repository, for its artifacts.
+
+## Who merges
+
+The agent commits, pushes and opens pull requests, as far as its settings allow ([agent-settings.md](agent-settings.md)). It never merges a pull request and never merges into `main`, `dev` or a rest branch, in any clone or the meta-repository. The developer merges pull requests by hand, because a merge into `dev` or `main` changes a server or production. The only merge the agent makes is a work branch into its merge branch.
+
+## No Claude attribution
+
+Commit messages, pull request titles, pull request descriptions and pull request comments carry no Claude attribution, in the clones and in the meta-repository: no `Co-Authored-By:` line naming Claude or `anthropic.com`, no `Generated with Claude Code` line and no other mention of Claude or Anthropic. The work goes out under the developer's name. Rule file names such as `CLAUDE.md` and `.claude/` and the tool name `Claude Code` are allowed. The shared settings turn Claude Code's attribution lines off ([agent-settings.md](agent-settings.md)).
+
+## Commit messages
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat: ...`, `fix: ...`, `docs: ...`, `chore: ...`, written in {{ language_name }} after the type.
+
+## What code checks
+
+- The agent does not commit or push without permission, and never commits or pushes to `main`, neither in the clones nor in the meta-repository ([agent-settings.md](agent-settings.md)).
+- The agent's git hook refuses `gh pr merge` in every repository and `git merge` while the target repository is on `main`, `dev` or its rest branch.
+- The agent's git hook refuses a commit or pull request text with Claude attribution and names what it found.
+- The clones' own hooks run on a commit in a clone the same way as when working with the repository directly.
+{% endif -%}

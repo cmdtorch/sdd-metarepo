@@ -1,0 +1,84 @@
+{% if language == 'ru' -%}
+
+# Структура и запуск агента
+
+Прочитайте это перед клонированием, перед выбором папки для запуска агента и при разборе случая «агент не увидел правило».
+
+## Структура
+
+```text
+{{ project_slug }}/        git метарепозитория, ветка main
+├── AGENTS.md             правила для агентов
+├── repos.toml            реестр репозиториев, единственный список клонов
+├── openspec/             OpenSpec и sdd-kit: спецификации, изменения, протоколы (после mise run kit:install)
+│   └── clones            список клонов для sdd-kit, генерируется из repos.toml
+├── docs/                 правила для агентов, решения, бэклог клонов
+├── ast-grep/             общие правила для кода клонов
+├── mise-tasks/           задачи mise, по папке на клон
+├── scripts/              скрипт реестра и помощники задач
+├── tests/                тесты метарепозитория
+└── repos/                в .gitignore
+    └── <name>/           свой git, на своей ветке покоя
+```
+
+Метарепозиторий и клоны — отдельные git-репозитории. `git status` в корне не показывает изменений в `repos/`, а коммит в корне не включает файлы клонов. Поэтому git запускается внутри папки того репозитория, который затрагивает задача.
+
+## Откуда запускать агента
+
+Всегда из корня метарепозитория, даже для задачи в одном клоне. Причины:
+
+- Claude Code читает `AGENTS.md` в папке запуска и во всех папках выше неё, а правила подпапки подгружает, когда агент открывает файл в этой подпапке. Из корня `AGENTS.md` метарепозитория доступен с первого шага, а `CLAUDE.md` клона появляется, когда агент открывает файл в этом клоне. Поэтому `AGENTS.md` явно требует читать правила клона перед правкой.
+- `.claude/settings.json` и хуки берутся только из папки запуска. Хуки sdd-kit и хук `agent-git-guard` работают, только когда агент запущен из корня.
+- sdd-kit в режиме метарепозитория видит тесты в клонах, проверяет их маркеры сценариев и запрещает из корня менять `openspec/` внутри клона (`openspec/protocols/metarepo.md`).
+
+Сессия, запущенная внутри клона, видит `AGENTS.md` метарепозитория, но не его настройки и хуки. Пользуйтесь этим только для небольших правок без OpenSpec.
+
+## Клонирование
+
+Клоны создаёт `mise run clone`. Список — это `repos.toml`; `mise run repos:sync` записывает его в `[bootstrap.repos]` в `mise.toml`, который читает `mise run clone`, и в `openspec/clones` для sdd-kit. Подробности в [../../repos/README.md](../../repos/README.md), причина выбора в [ADR 0001](../adr/0001-clones-via-mise-bootstrap-repos.md). Новый клон добавляется командой `mise run add-repo`; `mise run check` падает, пока списки расходятся.
+
+## Чужие изменения
+
+В клоне могут быть изменения другого человека или другой сессии агента. Перед правкой выполните `mise run status` и посмотрите на `CHANGED`. Не запускайте `git add .` в клоне; добавляйте файлы по имени.
+{% else -%}
+# Layout and starting the agent
+
+Read this before cloning, before choosing the folder to start the agent in, and when investigating "the agent did not see a rule".
+
+## Layout
+
+```text
+{{ project_slug }}/        meta-repository git, branch main
+├── AGENTS.md             agent rules
+├── repos.toml            repository registry, the only list of clones
+├── openspec/             OpenSpec and sdd-kit: specs, changes, protocols (after mise run kit:install)
+│   └── clones            clone list for sdd-kit, generated from repos.toml
+├── docs/                 agent rules, decisions, clone backlog
+├── ast-grep/             shared rules for clone code
+├── mise-tasks/           mise tasks, one folder per clone
+├── scripts/              registry script and task helpers
+├── tests/                meta-repository tests
+└── repos/                in .gitignore
+    └── <name>/           own git, on its rest branch
+```
+
+The meta-repository and the clones are separate git repositories. `git status` in the root shows no changes in `repos/`, and a commit in the root does not include clone files. So git runs inside the folder of the repository the task touches.
+
+## Where to start the agent
+
+Always from the meta-repository root, also for a task in a single clone. The reasons:
+
+- Claude Code reads `AGENTS.md` in the start folder and every folder above it, and loads subfolder rules when the agent opens a file in that subfolder. From the root, the meta-repository's `AGENTS.md` is there from the first step, and a clone's `CLAUDE.md` appears when the agent opens a file in that clone. That is why `AGENTS.md` explicitly requires reading the clone's rules before an edit.
+- `.claude/settings.json` and hooks are taken only from the start folder. The sdd-kit hooks and the `agent-git-guard` hook work only when started from the root.
+- sdd-kit in meta-repository mode sees the tests in the clones, checks their scenario markers, and forbids changing `openspec/` inside a clone from the root (`openspec/protocols/metarepo.md`).
+
+A session started inside a clone sees the meta-repository's `AGENTS.md` but not its settings and hooks. Use that only for small edits without OpenSpec.
+
+## Cloning
+
+`mise run clone` creates the clones. The list is `repos.toml`; `mise run repos:sync` writes it into `[bootstrap.repos]` in `mise.toml`, which `mise run clone` reads, and into `openspec/clones` for sdd-kit. Details in [../../repos/README.md](../../repos/README.md), the reason for the choice in [ADR 0001](../adr/0001-clones-via-mise-bootstrap-repos.md). A new clone is added with `mise run add-repo`; `mise run check` fails while the lists disagree.
+
+## Other people's changes
+
+A clone may contain changes by another person or another agent session. Before an edit, run `mise run status` and look at `CHANGED`. Do not run `git add .` in a clone; add files by name.
+{% endif -%}

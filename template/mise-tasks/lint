@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Check the root texts and agent settings: rumdl, typos, agnix, agent files"
+set -euo pipefail
+
+# Only the meta-repository's own files: repos/ and openspec/changes/ are excluded
+# in .rumdl.toml, _typos.toml and .agnix.toml. Each check runs even if the
+# previous one failed.
+failed=0
+rumdl check . || failed=1
+typos || failed=1
+# Without --strict, agnix warnings exit with code 0.
+agnix --strict . || failed=1
+scripts/check-agent-files.sh || failed=1
+exit "$failed"

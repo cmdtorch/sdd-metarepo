@@ -1,0 +1,16 @@
+# typos: spelling in the root (mise run lint). Not checked: the clones in repos/,
+# OpenSpec changes and specs (sdd-kit checks them), files that sdd-kit installs and
+# overwrites on update, and the mise lock file.
+[files]
+extend-exclude = [
+    "repos/",
+    "openspec/changes/",
+    "openspec/specs/",
+    "openspec/protocols/",
+    "openspec/schemas/",
+    "openspec/tooling/",
+    "mise.lock",
+]
+
+# Project words that typos takes for typos go here.
+[default.extend-words]

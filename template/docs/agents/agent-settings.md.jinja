@@ -1,0 +1,222 @@
+{% if language == 'ru' -%}
+
+# Настройки и разрешения агента
+
+Прочитайте это перед изменением `.claude/`, разрешений и хуков агента, а также когда разработчик хочет изменить, может ли агент коммитить или пушить.
+
+## Что где лежит
+
+| Путь | Назначение |
+| --- | --- |
+| `AGENTS.md` | Правила, их читают Claude Code и Codex |
+| `.claude/settings.json` | Хуки и разрешения Claude Code для сессий из корня, общие для команды |
+| `.claude/settings.local.json` | Личные настройки разработчика, в `.gitignore` |
+| `.claude/hooks/agent-git-guard.mjs` | Хук, который решает, может ли агент коммитить и пушить, отклоняет упоминание Claude и отклоняет слияния в `main`, `dev` и ветки покоя |
+| `.claude/skills/` | Скиллы: `bootstrap`, `add-ast-grep-rule` и, после `mise run kit:install`, `openspec-*` из OpenSpec |
+| `.claude/commands/`, `.claude/agents/` | После `mise run kit:install`: команды `/opsx:*` и `/sdd:*` и агенты-ревьюеры sdd-kit |
+| `openspec/tooling/hooks/` | Хуки sdd-kit, их подключает к `.claude/settings.json` установщик кита |
+
+Файлы OpenSpec и sdd-kit перезаписываются при обновлении; не правьте их вручную.
+
+## AGENTS.md без CLAUDE.md
+
+Claude Code читает `AGENTS.md` нативно начиная с версии 2.1.277. Если в корне есть `CLAUDE.md`, `.claude/CLAUDE.md` или `CLAUDE.local.md`, чтение `AGENTS.md` отключается, поэтому таких файлов в корне нет, а `mise run lint` их ловит. `CLAUDE.md` клона лежит ниже корня и чтение не отключает. Обоснование в [ADR 0002](../adr/0002-only-agents-md.md).
+
+## Коммит и пуш агента
+
+{% if agent_git_default == 'on' -%}
+В этом проекте агент по умолчанию коммитит и пушит, и в клонах, и в метарепозитории: общий `.claude/settings.json` задаёт обеим переменным `1`. Разработчик, который этого не хочет, отключает любое из двух для себя в своём `.claude/settings.local.json`, чей `env` перекрывает общий. Коммит и пуш настраиваются отдельно.
+
+```json
+{
+  "env": {
+    "METAREPO_AGENT_COMMIT": "0",
+    "METAREPO_AGENT_PUSH": "0"
+  }
+}
+```
+{%- else -%}
+По умолчанию агент не коммитит и не пушит ни в клонах, ни в метарепозитории. Каждый разработчик включает это для себя в своём `.claude/settings.local.json`. Коммит и пуш включаются отдельно.
+
+```json
+{
+  "env": {
+    "METAREPO_AGENT_COMMIT": "1",
+    "METAREPO_AGENT_PUSH": "1"
+  }
+}
+```
+{%- endif %}
+
+- `METAREPO_AGENT_COMMIT=1` разрешает `git commit`. Пуш оно не разрешает.
+- `METAREPO_AGENT_PUSH=1` разрешает `git push`.
+- Любое другое значение или отсутствие значения отклоняет команду.
+- Коммит, пока репозиторий стоит на `main`, и пуш в `main` отклоняются всегда, какими бы ни были настройки.
+- Переменная, записанная в самой команде (`METAREPO_AGENT_COMMIT=1 git commit`), не считается. Хук смотрит только на окружение сессии.
+
+Решает хук `.claude/hooks/agent-git-guard.mjs`. Он срабатывает на каждую команду Bash, находит репозиторий по `git -C <folder>`, по `cd <folder>` перед командой или по папке сессии и отклоняет команду до её запуска с сообщением, в котором названа нужная настройка или `main`. Отказ на `main` называет ветку, от которой надо начинать, по модели веток клона из `repos.toml`. Хук читает текст команды, поэтому не увидит коммит, сделанный из скрипта (см. «Чего хук не видит» ниже). Защитой остаются собственные хуки клонов и правила веток. Причины решения в [ADR 0004](../adr/0004-agent-commit-push-opt-in.md).
+
+После изменения `.claude/settings.local.json` перезапустите сессию Claude Code, чтобы окружение обновилось.
+
+## Никакого упоминания Claude
+
+Коммиты и pull request ни в одном репозитории не содержат упоминания Claude. Это обеспечивают две вещи.
+
+Общий `.claude/settings.json` отключает строки, которые Claude Code добавляет по умолчанию:
+
+```json
+{
+  "attribution": { "commit": "", "pr": "" },
+  "includeCoAuthoredBy": false
+}
+```
+
+`includeCoAuthoredBy` — старая настройка, она оставлена для разработчиков на старых версиях Claude Code.
+
+Хук `.claude/hooks/agent-git-guard.mjs` тоже отклоняет упоминание Claude до запуска команды. Проверка:
+
+- Охватывает `git commit` и `gh pr create`, `gh pr edit`, `gh pr comment` и `gh pr review`, в метарепозитории и в клонах.
+- Читает текст `-m`/`--message`, `--trailer` и `--author` для git и `--title`/`-t` и `--body`/`-b` для gh. Ещё она читает файл, названный в `-F`/`--file` (git) или `--body-file`/`-F` (gh), относительно папки команды (`git -C`, `cd` или папка сессии). С `-` она проверяет heredoc, который подаётся на вход команде.
+- Отклоняет текст со строкой `Generated with Claude Code`, строкой `Co-Authored-By:` с Claude или `anthropic.com` или со словами Claude или Anthropic в любом другом месте. Регистр букв не важен.
+- Допускает пути, оканчивающиеся на `CLAUDE.md` или `CLAUDE.local.md`, пути, содержащие `.claude/`, и название `Claude Code`. Внутри строки `Generated with Claude Code` название `Claude Code` всё равно отклоняется.
+- Отклоняет текст, которого не видит: `git commit` без `-m` или `-F` (он открыл бы редактор), `gh pr create --fill`, `--fill-first` и `--fill-verbose`, а также `--editor` или `--web` у `gh pr create` и `gh pr comment`. Коммит, который повторно использует сообщение через `--no-edit` или `-C`, проходит.
+
+Отказ называет, что найдено, например `Co-Authored-By` или слово в том виде, как оно написано. Если отклонён законный текст, например коммит про API-ключ Anthropic, переформулируйте его или попросите разработчика закоммитить вручную. Отказы по разрешениям идут первыми, поэтому разработчик без разрешения на коммит видит привычное сообщение. Затем идёт проверка упоминания Claude, затем правила для `main`.
+
+## Слияние остаётся за разработчиком
+
+Агент никогда не сливает pull request и никогда не делает слияние в `main`, `dev` или ветку покоя клона. Хук отклоняет это, какими бы ни были личные настройки:
+
+| Команда | Когда отклоняется | Сообщение |
+| --- | --- | --- |
+| `gh pr merge` | Всегда, в любом репозитории | Pull request разработчик сливает вручную |
+| `git merge` | Целевой репозиторий стоит на `main`, `dev` или своей ветке покоя из `repos.toml` | Называет ветку и сообщает, что сливает разработчик вручную |
+
+`git merge` на любой другой ветке проходит, например слияние рабочей ветки в её ветку слияния `merge/<name>-into-dev` ([branches.md](branches.md)). `git merge --abort` и `--quit` тоже проходят.
+
+## Чего хук не видит
+
+Хук читает текст команды. Он не видит коммит, слияние или pull request, сделанные изнутри скрипта, текст, собранный подстановкой команды, например `--body "$(cat body.md)"`, а также комментарий или слияние через `gh api`. Защитой остаются собственные хуки клонов, правила веток и ревью разработчика.
+
+## Хуки sdd-kit
+
+Установщик sdd-kit добавляет свои хуки в `.claude/settings.json`: шлюз ответов, шлюз архивации, защиту от действий за пределами проекта и другие, а также разрешения только на чтение для своих проверок. Хук `agent-git-guard` стоит рядом с ними отдельной записью для Bash. После `mise run kit:update` проверьте, что запись хука на месте; это проверяет `mise run test`.
+
+## Разрешения
+
+Собственные разрешения шаблона в `.claude/settings.json` допускают только точные команды, которые ничего не меняют: `mise run status`, `lint`, `test`, `check`, `repos:check` и `check` и `list` реестра. Добавляйте разрешение только для команды, которая ничего не меняет, и записывайте его как можно точнее.
+
+## Скиллы
+
+Скилл — это папка с `SKILL.md`, во front matter которого есть `name` и `description`. Описание решает, когда агент загружает скилл, поэтому в нём названа ситуация. У метарепозитория два собственных скилла: `bootstrap` — AI-онбординг, который читает клоны и настраивает их задачи mise, документацию и контекст OpenSpec, задавая вопросы с вариантами ответа, и `add-ast-grep-rule`, который ведёт от идеи общего правила до его теста.
+{% else -%}
+# Agent settings and permissions
+
+Read this before changing `.claude/`, permissions and agent hooks, and when a developer wants to change whether the agent may commit or push.
+
+## What lives where
+
+| Path | Purpose |
+| --- | --- |
+| `AGENTS.md` | Rules, read by Claude Code and Codex |
+| `.claude/settings.json` | Claude Code hooks and permissions for sessions from the root, shared by the team |
+| `.claude/settings.local.json` | The developer's personal settings, in `.gitignore` |
+| `.claude/hooks/agent-git-guard.mjs` | Hook that decides whether the agent may commit and push, refuses Claude attribution and refuses merges into `main`, `dev` and rest branches |
+| `.claude/skills/` | Skills: `bootstrap`, `add-ast-grep-rule` and, after `mise run kit:install`, `openspec-*` from OpenSpec |
+| `.claude/commands/`, `.claude/agents/` | After `mise run kit:install`: the `/opsx:*` and `/sdd:*` commands and the sdd-kit reviewer agents |
+| `openspec/tooling/hooks/` | sdd-kit hooks, wired into `.claude/settings.json` by the kit's installer |
+
+OpenSpec and sdd-kit files are overwritten on update; do not edit them by hand.
+
+## AGENTS.md without CLAUDE.md
+
+Claude Code reads `AGENTS.md` natively since version 2.1.277. If the root has `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`, reading `AGENTS.md` is turned off, so the root has no such files and `mise run lint` catches them. A clone's `CLAUDE.md` lives below the root and does not turn reading off. Rationale in [ADR 0002](../adr/0002-only-agents-md.md).
+
+## Agent commit and push
+
+{% if agent_git_default == 'on' -%}
+In this project the agent commits and pushes by default, in the clones and in the meta-repository: the shared `.claude/settings.json` sets both variables to `1`. A developer who does not want this turns either off for themselves in their own `.claude/settings.local.json`, whose `env` overrides the shared one. Commit and push are set separately.
+
+```json
+{
+  "env": {
+    "METAREPO_AGENT_COMMIT": "0",
+    "METAREPO_AGENT_PUSH": "0"
+  }
+}
+```
+{%- else -%}
+By default the agent does not commit or push, neither in the clones nor in the meta-repository. Each developer enables this for themselves in their own `.claude/settings.local.json`. Commit and push are enabled separately.
+
+```json
+{
+  "env": {
+    "METAREPO_AGENT_COMMIT": "1",
+    "METAREPO_AGENT_PUSH": "1"
+  }
+}
+```
+{%- endif %}
+
+- `METAREPO_AGENT_COMMIT=1` allows `git commit`. It does not allow push.
+- `METAREPO_AGENT_PUSH=1` allows `git push`.
+- Any other value, or no value, refuses the command.
+- A commit while the repository is on `main`, and a push to `main`, are always refused, whatever the settings.
+- A variable written in the command itself (`METAREPO_AGENT_COMMIT=1 git commit`) does not count. The hook looks only at the session environment.
+
+The hook `.claude/hooks/agent-git-guard.mjs` decides. It runs on every Bash command, finds the repository from `git -C <folder>`, from a `cd <folder>` before the command, or from the session folder, and refuses the command before it runs with a message naming the required setting or `main`. The refusal on `main` names the branch to start from, read from the clone's branch model in `repos.toml`. The hook reads the command text, so it will not see a commit made from a script (see "What the hook does not see" below). The clones' own hooks and the branch rules remain the safeguard. Reasons for the decision in [ADR 0004](../adr/0004-agent-commit-push-opt-in.md).
+
+After changing `.claude/settings.local.json`, restart the Claude Code session so the environment is refreshed.
+
+## No Claude attribution
+
+Commits and pull requests carry no Claude attribution in any repository. Two things enforce this.
+
+The shared `.claude/settings.json` turns off the lines Claude Code adds by default:
+
+```json
+{
+  "attribution": { "commit": "", "pr": "" },
+  "includeCoAuthoredBy": false
+}
+```
+
+`includeCoAuthoredBy` is the older setting, kept for developers on older Claude Code versions.
+
+The hook `.claude/hooks/agent-git-guard.mjs` also refuses attribution before the command runs. The check:
+
+- Covers `git commit` and `gh pr create`, `gh pr edit`, `gh pr comment` and `gh pr review`, in the meta-repository and in the clones.
+- Reads the text of `-m`/`--message`, `--trailer` and `--author` for git, and `--title`/`-t` and `--body`/`-b` for gh. It also reads the file named by `-F`/`--file` (git) or `--body-file`/`-F` (gh), relative to the command's folder (`git -C`, `cd` or the session folder). With `-` it checks the heredoc that feeds the command.
+- Refuses text with a `Generated with Claude Code` line, a `Co-Authored-By:` line naming Claude or `anthropic.com`, or the words Claude or Anthropic anywhere else. Letter case does not matter.
+- Allows paths ending in `CLAUDE.md` or `CLAUDE.local.md`, paths containing `.claude/`, and the name `Claude Code`. `Claude Code` is still refused inside the `Generated with Claude Code` line.
+- Refuses text it cannot see: a `git commit` with no `-m` or `-F` (it would open an editor), `gh pr create --fill`, `--fill-first` and `--fill-verbose`, and `--editor` or `--web` on `gh pr create` and `gh pr comment`. A commit that reuses a message with `--no-edit` or `-C` passes.
+
+The refusal names what it found, for example `Co-Authored-By` or the word as written. When a legitimate text is refused, for example a commit about an Anthropic API key, rephrase it or ask the developer to commit by hand. The permission refusals come first, so a developer without commit permission sees the usual message. Then comes the attribution check, then the `main` rules.
+
+## Merging stays with the developer
+
+The agent never merges a pull request and never merges into `main`, `dev` or a clone's rest branch. The hook refuses, whatever the personal settings:
+
+| Command | Refused when | Message |
+| --- | --- | --- |
+| `gh pr merge` | Always, in every repository | The developer merges pull requests by hand |
+| `git merge` | The target repository is on `main`, `dev` or its rest branch from `repos.toml` | Names the branch and says the developer merges by hand |
+
+A `git merge` on any other branch passes, such as merging a work branch into its merge branch `merge/<name>-into-dev` ([branches.md](branches.md)). `git merge --abort` and `--quit` also pass.
+
+## What the hook does not see
+
+The hook reads the command text. It does not see a commit, merge or pull request made from inside a script, a text built by a command substitution such as `--body "$(cat body.md)"`, or a comment or merge made through `gh api`. The clones' own hooks, the branch rules and the developer's review remain the safeguard.
+
+## sdd-kit hooks
+
+The sdd-kit installer merges its hooks into `.claude/settings.json`: the answer gate, the archive gate, protection against actions outside the project, and others, plus read-only permissions for its checks. The `agent-git-guard` hook sits next to them as a separate Bash entry. After `mise run kit:update`, check that the hook entry is still there; `mise run test` checks it.
+
+## Permissions
+
+The template's own permissions in `.claude/settings.json` allow only exact read-only commands: `mise run status`, `lint`, `test`, `check`, `repos:check` and the registry's `check` and `list`. Add a permission only for a command that changes nothing, and write it as exactly as possible.
+
+## Skills
+
+A skill is a folder with a `SKILL.md` whose front matter has `name` and `description`. The description decides when the agent loads the skill, so it names the situation. The meta-repository has two skills of its own: `bootstrap`, the AI onboarding that reads the clones and configures their mise tasks, the docs and the OpenSpec context, asking questions with options; and `add-ast-grep-rule`, which goes from the idea of a shared rule to its test.
+{% endif -%}

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#MISE description="Update the meta-repository and each clone on its current branch with git pull --rebase --autostash"
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+
+# The meta-repository is updated first, then the declared clones. A repository
+# with local changes is updated together with them. A failure in one repository
+# does not stop the others: a missing clone, a failed pull, a rebase conflict or
+# a stash that was not restored go into the final list and fail the command. A
+# conflicted rebase stays in progress for the developer to resolve. A branch
+# without upstream is not updated and is listed separately without failing.
+failed=()
+no_upstream=()
+
+# update <name shown in the output> <folder>
+update() {
+	local name="$1" dir="$2" branch
+	echo "== $name"
+	if [ ! -d "$dir/.git" ]; then
+		echo "$name: missing, the clone does not exist. Create it with: mise run clone"
+		failed+=("$name (missing)")
+		return
+	fi
+	branch="$(git -C "$dir" branch --show-current)"
+	if [ -n "$branch" ] && ! git -C "$dir" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+		echo "$name: branch $branch has no upstream, not updated"
+		no_upstream+=("$name ($branch)")
+		return
+	fi
+	if ! git -C "$dir" pull --rebase --autostash; then
+		failed+=("$name")
+		return
+	fi
+	# On a conflict, autostash leaves markers in files and git may still exit with
+	# code 0, so conflicts and a leftover stash are checked separately.
+	if [ -n "$(git -C "$dir" diff --name-only --diff-filter=U)" ] || [ -n "$(git -C "$dir" stash list)" ]; then
+		failed+=("$name")
+	fi
+}
+
+update meta-repository "$MISE_CONFIG_ROOT"
+# The clone list is read after the meta-repository is updated, so a clone added
+# upstream is included.
+cd "$MISE_CONFIG_ROOT"
+while read -r dir; do
+	update "$dir" "$dir"
+done < <(declared_clones)
+
+if [ "${#no_upstream[@]}" -gt 0 ]; then
+	echo
+	echo "No upstream, not updated:"
+	printf '  %s\n' "${no_upstream[@]}"
+fi
+if [ "${#failed[@]}" -gt 0 ]; then
+	echo
+	echo "Not updated, resolve manually:"
+	printf '  %s\n' "${failed[@]}"
+	exit 1
+fi

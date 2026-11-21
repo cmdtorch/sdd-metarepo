@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#MISE description="Single check: each clone's own checks, ast-grep rules, repository registry"
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/scripts/clones.sh"
+
+# Independent steps; each runs even if the previous one failed. Clone tests are
+# not included: they usually need a database or a running stack (<name>:test).
+
+# ast-grep rules: rule tests, then a scan for violations in each clone.
+code_rules() {
+	if [ -z "$(find ast-grep/rules -name '*.yml' -print -quit)" ]; then
+		echo "no rules: ast-grep/rules has no rules"
+		return 0
+	fi
+	local failed=0 dir
+	ast-grep test --skip-snapshot-tests || failed=1
+	while read -r dir; do
+		[ -d "$dir/.git" ] || continue
+		# repos/* is in the meta-repository's .gitignore, so without --no-ignore parent
+		# ast-grep would skip the clones. The clone's own .gitignore still applies.
+		ast-grep scan --no-ignore parent "$dir" || failed=1
+	done < <(declared_clones)
+	return "$failed"
+}
+
+results=()
+failed=0
+step() { # <name> <what runs> <command...>
+	local name="$1"
+	echo "== $name: $2"
+	shift 2
+	if "$@"; then
+		results+=("$name ok")
+	else
+		results+=("$name FAIL")
+		failed=1
+	fi
+	echo
+}
+
+for name in $(repo_names); do
+	step "$name" "mise run $name:check in repos/$name" mise run "$name:check"
+done
+step code-rules "ast-grep test and ast-grep scan over the clones" code_rules
+step repos "repos.toml against mise.toml, openspec/clones, task folders and docs" node scripts/repos.mjs check
+
+if [ "$failed" -ne 0 ]; then
+	echo "Some steps failed. A failure that already exists on the clone's rest branch goes into docs/clone-backlog.md."
+	echo
+fi
+
+printf '%-16s %s\n' STEP RESULT
+for r in "${results[@]}"; do
+	# shellcheck disable=SC2086
+	printf '%-16s %s\n' $r
+done
+exit "$failed"
