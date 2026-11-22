@@ -43,7 +43,7 @@ Repositories are not asked by Copier: they are added after generation, so they c
 | What | Command, in the generated project |
 | --- | --- |
 | Template improvements | `mise x uv@latest -- uvx copier update --trust`; answers are in `.copier-answers.yml`. `repos.toml`, `GLOSSARY.md` and `docs/clone-backlog.md` belong to the project and are never overwritten |
-| sdd-kit | `mise run kit:update` (latest release) or `SDD_KIT_REF=v0.4.0 mise run kit:install` |
+| sdd-kit | `mise run kit:update` (latest release) or `SDD_KIT_REF=v0.5.0 mise run kit:install` |
 | Another repository | `mise run add-repo`, or edit `repos.toml` and run `mise run repos:sync` |
 
 ## How the generated project works
