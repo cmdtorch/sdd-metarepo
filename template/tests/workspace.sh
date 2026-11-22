@@ -16,10 +16,8 @@ test_fresh_machine() {
 	missing="$(cd "$WS" && mise ls --current --missing 2>&1)"
 	assert_eq "" "$missing" "missing tools"
 	# The meta-repository's own hooks are installed.
-	hooks="$(git -C "$WS" rev-parse --git-path hooks)"
-	assert_file "$WS/$hooks/pre-commit"
-	assert_file "$WS/$hooks/pre-push"
-	assert_contains "$(cat "$WS/$hooks/pre-commit")" "hk" "pre-commit calls hk"
+	assert_hk_hook "$WS" pre-commit
+	assert_hk_hook "$WS" pre-push
 }
 
 # Without a terminal and without repositories, setup does not ask and names add-repo.

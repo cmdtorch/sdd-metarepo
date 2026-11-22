@@ -1,7 +1,7 @@
 # Copier template of an AI meta-repository: one root with agent rules, OpenSpec with sdd-kit,
 # decisions and checks, and the application repositories cloned into repos/.
 #
-#   uvx copier copy --trust gh:cmdtorch/sdd-metarepo my-meta
+#   mise x uv@latest -- uvx copier copy --trust gh:cmdtorch/sdd-metarepo my-meta
 #
 # Only project-level questions are asked here. Repositories are added after generation with
 # `mise run add-repo` (setup runs it when the registry is empty), and sdd-kit is installed by

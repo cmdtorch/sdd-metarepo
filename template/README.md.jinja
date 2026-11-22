@@ -68,7 +68,7 @@ mise run setup
 
 | Что | Как |
 | --- | --- |
-| Улучшения этого шаблона | `uvx copier update --trust`, затем проверьте diff; ответы лежат в `.copier-answers.yml` |
+| Улучшения этого шаблона | `mise x uv@latest -- uvx copier update --trust`, затем проверьте diff; ответы лежат в `.copier-answers.yml` |
 | sdd-kit | `mise run kit:update`, затем закоммитьте `openspec/`, `.claude/`, `.gitignore` и `mise.toml` |
 | Репозитории | `mise run add-repo` или правка `repos.toml` и `mise run repos:sync` |
 
@@ -144,7 +144,7 @@ After `setup`, create each application's environment files as described in [docs
 
 | What | How |
 | --- | --- |
-| This template's improvements | `uvx copier update --trust`, then review the diff; the answers live in `.copier-answers.yml` |
+| This template's improvements | `mise x uv@latest -- uvx copier update --trust`, then review the diff; the answers live in `.copier-answers.yml` |
 | sdd-kit | `mise run kit:update`, then commit `openspec/`, `.claude/`, `.gitignore` and `mise.toml` |
 | Repositories | `mise run add-repo`, or edit `repos.toml` and run `mise run repos:sync` |
 

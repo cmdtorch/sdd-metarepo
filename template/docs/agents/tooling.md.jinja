@@ -104,7 +104,7 @@ Node 24 запускает хук агента, скрипт реестра, п�
 
 ## Обновления шаблона
 
-Проект сгенерирован из Copier-шаблона sdd-metarepo; ответы лежат в `.copier-answers.yml`. `uvx copier update --trust` приносит улучшения шаблона в виде diff для проверки. Файлы, которые сгенерировал шаблон и изменил проект, получают маркеры конфликтов; сгенерированные разделы и `repos.toml` принадлежат проекту и обновляются командой `mise run repos:sync` после обновления.
+Проект сгенерирован из Copier-шаблона sdd-metarepo; ответы лежат в `.copier-answers.yml`. `mise x uv@latest -- uvx copier update --trust` приносит улучшения шаблона в виде diff для проверки. Файлы, которые сгенерировал шаблон и изменил проект, получают маркеры конфликтов; сгенерированные разделы и `repos.toml` принадлежат проекту и обновляются командой `mise run repos:sync` после обновления.
 {% else -%}
 # Tools, tasks and hooks
 
@@ -210,5 +210,5 @@ The clones in `repos/` and the changes and specs in `openspec/` are not checked.
 
 ## Template updates
 
-The project was generated from the sdd-metarepo Copier template; the answers are in `.copier-answers.yml`. `uvx copier update --trust` brings the template's improvements as a diff to review. Files the template generated and the project changed get conflict markers; the generated sections and `repos.toml` belong to the project and are refreshed with `mise run repos:sync` after the update.
+The project was generated from the sdd-metarepo Copier template; the answers are in `.copier-answers.yml`. `mise x uv@latest -- uvx copier update --trust` brings the template's improvements as a diff to review. Files the template generated and the project changed get conflict markers; the generated sections and `repos.toml` belong to the project and are refreshed with `mise run repos:sync` after the update.
 {% endif -%}

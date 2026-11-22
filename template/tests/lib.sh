@@ -61,6 +61,17 @@ $1" ;;
 }
 
 assert_file() { [ -f "$1" ] || fail "no file $1"; }
+# hk's hook for one git event is installed in a repository. On git 2.54+ hk
+# registers hooks in git config (hook.*); on older git it writes .git/hooks files.
+assert_hk_hook() {
+	local repo="$1" event="$2" hooks cfg
+	hooks="$(git -C "$repo" rev-parse --git-path hooks)"
+	case "$hooks" in /*) ;; *) hooks="$repo/$hooks" ;; esac
+	if [ -f "$hooks/$event" ] && grep -q hk "$hooks/$event"; then return 0; fi
+	cfg="$(git -C "$repo" config --get-regexp '^hook\.' 2>/dev/null || true)"
+	if printf '%s\n' "$cfg" | grep -q "$event" && printf '%s\n' "$cfg" | grep -q hk; then return 0; fi
+	fail "no hk $event hook in $repo (no $hooks/$event file, no hook.* config)"
+}
 assert_no_path() { [ ! -e "$1" ] || fail "path exists but should not: $1"; }
 
 # A command's exit code without triggering set -e: rc=$(exit_code cmd args...)

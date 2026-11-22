@@ -109,7 +109,7 @@ test_clone_hooks_stay_their_own() {
 	assert_contains "$before" "api hooksPath=.githooks"
 	(cd "$WS" && hk install --mise >/dev/null 2>&1) || fail "hk install"
 	assert_eq "$before" "$(snapshot)" "clone hook setup"
-	assert_file "$WS/.git/hooks/pre-commit"
+	assert_hk_hook "$WS" pre-commit
 }
 
 run_tests
