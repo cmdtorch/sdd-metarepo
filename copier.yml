@@ -33,7 +33,11 @@ _tasks:
   # The generated project is its own git repository from the start: hk and the tests need git.
   - command: "[ -e .git ] || git init -q -b main"
     when: "{{ _copier_operation == 'copy' }}"
-  - command: "mise trust --quiet && mise run setup"
+  # A failed task makes Copier delete the whole new project, so a setup failure (a clone
+  # without access, no network) is reported and the project stays; setup is safe to rerun.
+  - command: >-
+      mise trust --quiet && mise run setup ||
+      { echo; echo "{% if language == 'ru' %}mise run setup не завершился. Проект создан: исправьте причину выше (URL в repos.toml, доступ к репозиторию) и запустите в {{ _copier_conf.dst_path }}: mise run setup{% else %}mise run setup did not finish. The project is created: fix the cause above (the URL in repos.toml, access to the repository) and run in {{ _copier_conf.dst_path }}: mise run setup{% endif %}" >&2; }
     when: "{{ _copier_operation == 'copy' and run_setup }}"
 
 project_name:

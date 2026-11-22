@@ -263,6 +263,13 @@ export function parseRegistry(text) {
   return { repos, errors };
 }
 
+/** Why a clone URL is malformed, or '' when it looks right: a URL pasted twice has two schemes or user@host parts. */
+export function urlProblem(url) {
+  if (/\s/.test(url)) return `url \`${url}\`: has spaces`;
+  if ((url.match(/[A-Za-z][A-Za-z0-9+.-]*:\/\/|[\w.-]+@[\w.-]+:/g) ?? []).length > 1) return `url \`${url}\`: looks like two URLs glued together`;
+  return '';
+}
+
 /** Problems of one repository entry, given the entries before it. */
 export function validateRepo(r, others = []) {
   const problems = [];
@@ -271,6 +278,7 @@ export function validateRepo(r, others = []) {
   else if (RESERVED.has(r.name)) problems.push(`name \`${r.name}\` is taken by a meta-repository task or sdd-kit`);
   if (r.name && r.path !== `repos/${r.name}`) problems.push(`path must be repos/${r.name}, not ${r.path ?? '(missing)'}`);
   if (!r.url) problems.push('url is missing');
+  else if (urlProblem(r.url)) problems.push(urlProblem(r.url));
   if (!r.ref) problems.push('ref is missing');
   else if (!/^[A-Za-z0-9._/-]+$/.test(r.ref) || r.ref === 'main') problems.push(`ref \`${r.ref}\`: give the branch the clone rests on, other than main`);
   if (!MODELS.includes(r.branch_model)) problems.push(`branch_model must be ${MODELS.join(' or ')}, not ${r.branch_model ?? '(missing)'}`);
@@ -677,7 +685,10 @@ export function expandUrl(input, org) {
 
 /** Line reader that works for a terminal and for piped answers; null at the end of input. */
 function lineReader() {
-  const rl = createInterface({ input: process.stdin, terminal: Boolean(process.stdin.isTTY) });
+  // A terminal puts readline in raw mode, which turns off the terminal's own echo, so
+  // readline needs the output stream to echo what is typed and to end the line on Enter.
+  const tty = Boolean(process.stdin.isTTY);
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
   const queue = [];
   const waiting = [];
   let closed = false;
@@ -688,12 +699,17 @@ function lineReader() {
   });
   return {
     ask(question) {
-      process.stdout.write(question);
-      if (queue.length) return Promise.resolve(queue.shift());
       if (closed) {
-        process.stdout.write('\n');
+        process.stdout.write(`${question}\n`);
         return Promise.resolve(null);
       }
+      // readline redraws its prompt while the line is edited, so the last line of the
+      // question is the prompt and the lines above it are printed once.
+      const cut = question.lastIndexOf('\n') + 1;
+      if (cut) process.stdout.write(question.slice(0, cut));
+      rl.setPrompt(question.slice(cut));
+      rl.prompt();
+      if (queue.length) return Promise.resolve(queue.shift());
       return new Promise((r) => waiting.push(r));
     },
     close: () => rl.close(),
@@ -734,7 +750,13 @@ async function chooseModel(io, t, def) {
 async function askRepo(io, s, known) {
   for (;;) {
     let url = '';
-    while (!url) url = expandUrl(await prompt(io, s.t.askUrl(s.org).replace(/: $/, '')), s.org);
+    for (;;) {
+      url = expandUrl(await prompt(io, s.t.askUrl(s.org).replace(/: $/, '')), s.org);
+      if (!url) continue;
+      const problem = urlProblem(url);
+      if (!problem) break;
+      console.log(`  ${problem}`);
+    }
     let name = '';
     for (;;) {
       name = await prompt(io, s.t.askName, nameFromUrl(url));
